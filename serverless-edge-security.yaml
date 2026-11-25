@@ -1,0 +1,458 @@
+# ============================================================================
+# Robusta Studio - Serverless & Edge Function Security Rules
+# Copyright (c) 2026 Robusta Studio. All rights reserved.
+#
+# Precision rules for detecting security vulnerabilities in serverless
+# and edge computing environments: Vercel Edge, Cloudflare Workers,
+# AWS Lambda, Deno Deploy, and general serverless patterns.
+#
+# Usage: semgrep --config serverless-edge-security.yaml /path/to/project
+# ============================================================================
+
+rules:
+
+  # ==========================================================================
+  #              CLOUDFLARE WORKERS — EVAL & UNSAFE PATTERNS
+  # ==========================================================================
+
+  - id: robusta-vibe-worker-eval
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: new Function(...)
+    paths:
+      include:
+        - "**/worker*"
+        - "**/workers/**"
+        - "**/functions/**"
+    message: >
+      eval() or new Function() used in a serverless/worker context. This
+      enables code injection if any part of the input is attacker-controlled.
+      Use safe alternatives like JSON.parse() for data or a sandboxed
+      interpreter for dynamic logic.
+    metadata:
+      cwe: ["CWE-94"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: serverless
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            AWS LAMBDA — AUTH, ERROR EXPOSURE, IaC SECRETS
+  # ==========================================================================
+
+  # -- CWE-862 | Lambda Function URL Without Auth ---------------------------
+
+  - id: robusta-vibe-lambda-url-auth-none
+    patterns:
+      - pattern-regex: (?i)AuthorizationType\s*:\s*['"]?NONE['"]?
+    paths:
+      include:
+        - "**/template.yaml"
+        - "**/template.yml"
+        - "**/sam.yaml"
+        - "**/sam.yml"
+        - "**/*stack*"
+        - "**/*cdk*"
+    message: >
+      AWS Lambda Function URL with AuthorizationType NONE. Anyone on the
+      internet can invoke this function without authentication. Set
+      AuthorizationType to AWS_IAM and use IAM policies or Lambda authorizers
+      to control access.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: aws-lambda
+    severity: ERROR
+    languages: [generic]
+
+  - id: robusta-vibe-lambda-url-auth-none-serverless
+    patterns:
+      - pattern-regex: (?i)authorizer\s*:\s*none
+    paths:
+      include:
+        - "**/serverless.yml"
+        - "**/serverless.yaml"
+    message: >
+      Serverless Framework function with authorizer set to none. This Lambda
+      endpoint is publicly accessible without authentication. Use a Cognito,
+      JWT, or custom authorizer to protect the endpoint.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: aws-lambda
+    severity: ERROR
+    languages: [generic]
+
+  # -- CWE-209 | Lambda Error Exposure --------------------------------------
+
+  - id: robusta-vibe-lambda-raw-error-response
+    patterns:
+      - pattern-either:
+          - pattern: |
+              body: JSON.stringify($ERR)
+          - pattern: |
+              body: $ERR.message
+          - pattern: |
+              body: $ERR.stack
+    message: >
+      Lambda function returns raw error details (message or stack trace) to
+      the client. This leaks internal implementation details, file paths,
+      and dependency versions. Return a generic error message and log the
+      full error server-side.
+    metadata:
+      cwe: ["CWE-209"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: aws-lambda
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-798 | Secrets in IaC Environment Variables -----------------------
+
+  - id: robusta-vibe-serverless-yml-secret
+    patterns:
+      - pattern-regex: (?i)(?:DB_PASSWORD|DATABASE_URL|API_SECRET|JWT_SECRET|STRIPE_SECRET|PRIVATE_KEY|AUTH_SECRET)\s*:\s*['"][^${\s][^'"]+['"]
+    paths:
+      include:
+        - "**/serverless.yml"
+        - "**/serverless.yaml"
+        - "**/template.yaml"
+        - "**/template.yml"
+    message: >
+      Hardcoded secret in serverless IaC configuration. Use SSM Parameter
+      Store, Secrets Manager, or environment variable references
+      (${ssm:/path/to/secret}) instead of plaintext values.
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: serverless-config
+    severity: ERROR
+    languages: [generic]
+
+  - id: robusta-vibe-wrangler-secret
+    patterns:
+      - pattern-regex: (?i)(?:DB_PASSWORD|DATABASE_URL|API_SECRET|JWT_SECRET|STRIPE_SECRET|PRIVATE_KEY|AUTH_SECRET)\s*=\s*"[^${\s][^"]*"
+    paths:
+      include:
+        - "**/wrangler.toml"
+        - "**/wrangler.jsonc"
+    message: >
+      Hardcoded secret in Cloudflare wrangler configuration. Use
+      'wrangler secret put SECRET_NAME' to store secrets encrypted, or
+      reference them from a .dev.vars file excluded from version control.
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: serverless-config
+    severity: ERROR
+    languages: [generic]
+
+  # ==========================================================================
+  #            DENO DEPLOY — PATH TRAVERSAL & AUTH
+  # ==========================================================================
+
+  - id: robusta-vibe-deno-read-user-path
+    patterns:
+      - pattern-either:
+          - pattern: Deno.readFile($PATH)
+          - pattern: Deno.readTextFile($PATH)
+          - pattern: Deno.readFileSync($PATH)
+          - pattern: Deno.readTextFileSync($PATH)
+      - pattern-not-inside: |
+          ...
+          if (!$PATH.startsWith(...)) { ... }
+          ...
+      - pattern-not-inside: |
+          ...
+          $PATH = path.resolve(...)
+          ...
+    message: >
+      Deno file read with a potentially user-controlled path. Without path
+      validation, attackers can read arbitrary files from the server using
+      path traversal (../../etc/passwd). Resolve the path against a safe
+      base directory and reject any path containing '..'.
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: deno
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-deno-write-user-path
+    patterns:
+      - pattern-either:
+          - pattern: Deno.writeFile($PATH, ...)
+          - pattern: Deno.writeTextFile($PATH, ...)
+          - pattern: Deno.writeFileSync($PATH, ...)
+          - pattern: Deno.writeTextFileSync($PATH, ...)
+    message: >
+      Deno file write operation. If the path is derived from user input,
+      attackers can overwrite arbitrary files. Validate the path against
+      an allowlist of directories and reject paths containing '..'.
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: deno
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            GENERAL SERVERLESS — CORS, HEADERS, PATTERNS
+  # ==========================================================================
+
+  # -- CWE-942 | CORS Wildcard in Serverless Response -----------------------
+
+  - id: robusta-vibe-serverless-cors-wildcard
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $RES.headers.set("Access-Control-Allow-Origin", "*")
+          - pattern: |
+              $RES.headers.set('Access-Control-Allow-Origin', '*')
+          - pattern: "new Response($BODY, { headers: { \"Access-Control-Allow-Origin\": \"*\" } })"
+    message: >
+      Serverless function returns CORS wildcard Access-Control-Allow-Origin.
+      Any website can call this endpoint. Set the origin to your specific
+      domain(s) and avoid wildcards on endpoints that handle sensitive data
+      or use credentials.
+    metadata:
+      cwe: ["CWE-942"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: serverless
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-942 | CORS config in serverless.yml ------------------------------
+
+  - id: robusta-vibe-serverless-yml-cors-star
+    patterns:
+      - pattern-regex: (?i)cors\s*:\s*true
+    paths:
+      include:
+        - "**/serverless.yml"
+        - "**/serverless.yaml"
+    message: >
+      Serverless Framework 'cors: true' allows all origins. Specify allowed
+      origins explicitly with 'cors: { origin: "https://yourdomain.com" }'
+      to prevent cross-origin abuse.
+    metadata:
+      cwe: ["CWE-942"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: serverless-config
+    severity: WARNING
+    languages: [generic]
+
+  # -- CWE-209 | Catch-all returning raw error ------------------------------
+
+  - id: robusta-vibe-serverless-catch-error-expose
+    patterns:
+      - pattern: |
+          catch ($ERR) {
+            ...
+            return new Response($ERR.message, ...)
+          }
+    message: >
+      Serverless function catch block returns the raw error message to the
+      client. This can expose stack traces, database errors, and internal
+      paths. Return a generic error message and log the details server-side.
+    metadata:
+      cwe: ["CWE-209"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: serverless
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-307 | Missing auth pattern in edge handler -----------------------
+
+  - id: robusta-vibe-edge-handler-no-auth
+    patterns:
+      - pattern: |
+          export default {
+            async fetch($REQ, $ENV, $CTX) {
+              ...
+            }
+          }
+      - pattern-not-inside: |
+          export default {
+            async fetch($REQ, $ENV, $CTX) {
+              ...
+              $REQ.headers.get("Authorization")
+              ...
+            }
+          }
+      - pattern-not-inside: |
+          export default {
+            async fetch($REQ, $ENV, $CTX) {
+              ...
+              $REQ.headers.get("authorization")
+              ...
+            }
+          }
+      - pattern-not-inside: |
+          export default {
+            async fetch($REQ, $ENV, $CTX) {
+              ...
+              verify(...)
+              ...
+            }
+          }
+    paths:
+      include:
+        - "**/worker*"
+        - "**/workers/**"
+        - "**/functions/**"
+        - "**/src/index.*"
+    message: >
+      Edge/Worker fetch handler does not check the Authorization header or
+      verify credentials. Unless this is a public endpoint, add
+      authentication at the start of the handler.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: serverless
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-776 | No body size limit ----------------------------------------
+
+  - id: robusta-vibe-serverless-no-body-limit
+    patterns:
+      - pattern: |
+          const $BODY = await $REQ.json()
+      - pattern-not-inside: |
+          ...
+          if ($REQ.headers.get("content-length") > ...) { ... }
+          ...
+      - pattern-not-inside: |
+          ...
+          const $SIZE = ...
+          ...
+    paths:
+      include:
+        - "**/worker*"
+        - "**/workers/**"
+        - "**/functions/**"
+        - "**/api/**"
+    message: >
+      Serverless function parses request body without checking Content-Length.
+      An attacker can send a massive payload to exhaust function memory and
+      trigger out-of-memory errors (DoS). Check Content-Length against a
+      maximum before parsing.
+    metadata:
+      cwe: ["CWE-770"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: MEDIUM
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: serverless
+    severity: INFO
+    languages: [typescript, javascript]
+
+  # -- CWE-208 | Timing attack on auth error messages ----------------------
+
+  - id: robusta-vibe-serverless-auth-timing
+    patterns:
+      - pattern-either:
+          - pattern: |
+              if (!$USER) {
+                return new Response("User not found", ...)
+              }
+              ...
+              if ($USER.password !== $INPUT) {
+                return new Response("Invalid password", ...)
+              }
+          - pattern: |
+              if (!$USER) {
+                return new Response("User not found", ...)
+              }
+              ...
+              if (!$MATCH) {
+                return new Response("Wrong password", ...)
+              }
+    message: >
+      Authentication returns different error messages for invalid user vs
+      invalid password. This allows attackers to enumerate valid usernames.
+      Return the same generic message for both cases: "Invalid credentials".
+    metadata:
+      cwe: ["CWE-204"]
+      owasp: ["A07:2021 Identification and Authentication Failures"]
+      confidence: HIGH
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: serverless
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-862 | Vercel Edge Middleware Missing API Protection ---------------
+
+  - id: robusta-vibe-vercel-middleware-narrow-matcher
+    patterns:
+      - pattern-regex: "export const config.*matcher.*:\\s*\\[\\s*['\"]/(dashboard|admin|settings)"
+    paths:
+      include:
+        - "**/middleware.*"
+    message: >
+      Vercel middleware matcher only protects specific UI routes but may leave
+      /api routes unprotected. Attackers can call API endpoints directly,
+      bypassing the middleware. Use a broad matcher that covers both page
+      and API routes, or add auth checks inside each API handler.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: vercel
+    severity: WARNING
+    languages: [generic]

@@ -1,0 +1,424 @@
+# ============================================================================
+# Robusta Studio - tRPC & GraphQL Security Rules
+# Copyright (c) 2026 Robusta Studio. All rights reserved.
+#
+# Precision rules for detecting security vulnerabilities in tRPC and GraphQL
+# APIs: missing auth on mutations, introspection leaks, query abuse,
+# mass assignment, and information disclosure.
+#
+# Usage: semgrep --config trpc-graphql-security.yaml /path/to/project
+# ============================================================================
+
+rules:
+
+  # ==========================================================================
+  #                       tRPC — AUTH & INPUT VALIDATION
+  # ==========================================================================
+
+  # -- CWE-862 | Public Mutation Without Auth --------------------------------
+
+  - id: robusta-vibe-trpc-public-mutation
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $NAME: publicProcedure.mutation(...)
+          - pattern: |
+              $NAME: publicProcedure. ... .mutation(...)
+    message: >
+      tRPC mutation uses publicProcedure instead of protectedProcedure.
+      Mutations modify data and must require authentication. Use
+      protectedProcedure (or a custom auth middleware) for all mutations
+      to prevent unauthorized data changes.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: trpc
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-862 | Public Procedure With DB Write ------------------------------
+
+  - id: robusta-vibe-trpc-public-db-write
+    patterns:
+      - pattern-either:
+          - pattern: |
+              publicProcedure. ... .query(async ({ ... }) => {
+                ...
+                $DB.create(...)
+                ...
+              })
+          - pattern: |
+              publicProcedure. ... .query(async ({ ... }) => {
+                ...
+                $DB.update(...)
+                ...
+              })
+          - pattern: |
+              publicProcedure. ... .query(async ({ ... }) => {
+                ...
+                $DB.delete(...)
+                ...
+              })
+          - pattern: |
+              publicProcedure. ... .query(async ({ ... }) => {
+                ...
+                $DB.insert(...)
+                ...
+              })
+    message: >
+      tRPC publicProcedure performs database write operations (create, update,
+      delete, insert). Even in a query, database mutations behind
+      publicProcedure are accessible without authentication. Move database
+      writes to protectedProcedure mutations.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: trpc
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-20 | Procedure Without Input Validation ---------------------------
+
+  - id: robusta-vibe-trpc-no-input-validation
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $NAME: $PROC.mutation(async ({ input, ... }) => { ... })
+          - pattern: |
+              $NAME: $PROC.mutation(async ({ ctx, input }) => { ... })
+      - pattern-not-inside: |
+          $NAME: $PROC.input(...).mutation(...)
+      - pattern-not-inside: |
+          $NAME: $PROC. ... .input(...). ... .mutation(...)
+    message: >
+      tRPC mutation accesses input without schema validation. Without .input()
+      validation (e.g. .input(z.object({...}))), the input type is unknown at
+      runtime and attackers can send arbitrary data. Always validate input with
+      Zod or another schema before using it.
+    metadata:
+      cwe: ["CWE-20"]
+      owasp: ["A03:2021 Injection"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: trpc
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-200 | Returning Full User Object ----------------------------------
+
+  - id: robusta-vibe-trpc-return-full-user
+    patterns:
+      - pattern-either:
+          - pattern: |
+              return await $DB.user.findUnique(...)
+          - pattern: |
+              return await $DB.user.findFirst(...)
+          - pattern: |
+              const $USER = await $DB.user.findUnique(...)
+              ...
+              return $USER
+    paths:
+      include:
+        - "**/trpc/**"
+        - "**/server/routers/**"
+        - "**/server/api/**"
+    message: >
+      tRPC procedure returns a full user object from the database. This likely
+      exposes password hashes, internal IDs, and other sensitive fields. Use
+      Prisma select/omit or manually pick fields before returning.
+    metadata:
+      cwe: ["CWE-200"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: trpc
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-209 | Missing onError Handler ------------------------------------
+
+  - id: robusta-vibe-trpc-verbose-error
+    patterns:
+      - pattern: |
+          throw new TRPCError({
+            ...,
+            cause: $ERR,
+            ...
+          })
+    message: >
+      tRPC error includes the original error as cause. This can expose
+      internal stack traces, database errors, or other sensitive details to
+      the client. Log the original error server-side and return a generic
+      message to the client instead.
+    metadata:
+      cwe: ["CWE-209"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: MEDIUM
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: trpc
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                   GRAPHQL — CONFIG & QUERY SAFETY
+  # ==========================================================================
+
+  # -- CWE-200 | Introspection Enabled in Production -------------------------
+
+  - id: robusta-vibe-graphql-introspection-enabled
+    patterns:
+      - pattern-either:
+          - pattern: "new ApolloServer({ ..., introspection: true, ... })"
+          - pattern: "createYoga({ ..., graphiql: true, ... })"
+          - pattern: "new ApolloServer({ ..., playground: true, ... })"
+    message: >
+      GraphQL introspection or playground enabled. In production, introspection
+      exposes your entire API schema including internal types, mutations, and
+      field names. Disable with introspection:false in production or gate it
+      behind authentication.
+    metadata:
+      cwe: ["CWE-200"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: graphql
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-770 | No Query Depth Limit ---------------------------------------
+
+  - id: robusta-vibe-graphql-no-depth-limit
+    patterns:
+      - pattern-either:
+          - pattern: new ApolloServer($CONFIG)
+          - pattern: "new ApolloServer({ ..., })"
+      - pattern-not-inside: |
+          ...
+          depthLimit(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          queryDepth
+          ...
+    paths:
+      include:
+        - "**/graphql/**"
+        - "**/apollo/**"
+        - "**/server.*"
+    message: >
+      GraphQL server created without query depth limiting. Deeply nested
+      queries can cause exponential resource consumption (DoS). Install
+      graphql-depth-limit and add it to validationRules:
+      validationRules: [depthLimit(10)].
+    metadata:
+      cwe: ["CWE-770"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: graphql
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-862 | Resolver Mutation Without Auth ------------------------------
+
+  - id: robusta-vibe-graphql-resolver-no-auth-mutation
+    patterns:
+      - pattern: |
+          $MUTATION: async ($PARENT, $ARGS, $CTX) => {
+            ...
+            $DB.$METHOD(...)
+            ...
+          }
+      - pattern-not-inside: |
+          $MUTATION: async ($PARENT, $ARGS, $CTX) => {
+            ...
+            if (!$CTX. ...) { ... }
+            ...
+          }
+      - pattern-not-inside: |
+          $MUTATION: async ($PARENT, $ARGS, $CTX) => {
+            ...
+            $CTX.user
+            ...
+          }
+    paths:
+      include:
+        - "**/resolvers/**"
+        - "**/graphql/**"
+    message: >
+      GraphQL resolver performs database operations without checking
+      authentication from context. Verify the user in context before any
+      database mutation: if (!ctx.user) throw new AuthenticationError().
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: graphql
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-200 | Exposing Sensitive Fields -----------------------------------
+
+  - id: robusta-vibe-graphql-password-field
+    patterns:
+      - pattern-regex: (?i)(?:password|passwordHash|password_hash|secret|token|apiKey|api_key|ssn|creditCard)\s*[:{]
+    paths:
+      include:
+        - "**/schema.graphql"
+        - "**/schema.gql"
+        - "**/*.graphql"
+        - "**/*.gql"
+        - "**/typeDefs*"
+    message: >
+      GraphQL schema exposes a sensitive field (password, secret, token,
+      apiKey). Even if the resolver returns null, the field's existence in the
+      schema is visible via introspection. Remove sensitive fields from the
+      public schema entirely or use a separate admin schema.
+    metadata:
+      cwe: ["CWE-200"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: graphql
+    severity: ERROR
+    languages: [generic]
+
+  # -- CWE-770 | No Persisted Queries in Production -------------------------
+
+  - id: robusta-vibe-graphql-no-persisted-queries
+    patterns:
+      - pattern: "new ApolloServer({ ..., persistedQueries: false, ... })"
+    message: >
+      Persisted queries explicitly disabled. Without persisted queries or an
+      allowlist, any client can send arbitrary GraphQL operations including
+      deeply nested or expensive queries. Enable persisted queries in
+      production to restrict allowed operations.
+    metadata:
+      cwe: ["CWE-770"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: graphql
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-400 | N+1 Query in Resolver (DataLoader Missing) -----------------
+
+  - id: robusta-vibe-graphql-n-plus-one
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $FIELD: async ($PARENT, ...) => {
+                return await $DB.$MODEL.findUnique({ where: { id: $PARENT.$ID } })
+              }
+          - pattern: |
+              $FIELD: async ($PARENT, ...) => {
+                return $DB.$MODEL.findOne({ _id: $PARENT.$ID })
+              }
+      - pattern-not-inside: |
+          ...
+          DataLoader
+          ...
+    paths:
+      include:
+        - "**/resolvers/**"
+        - "**/graphql/**"
+    message: >
+      GraphQL field resolver performs a database query per parent item (N+1
+      problem). When this field is requested on a list, one query fires per
+      item, causing severe performance degradation. Use DataLoader to batch
+      and cache lookups.
+    metadata:
+      cwe: ["CWE-400"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: graphql
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-862 | Subscription Without Auth ----------------------------------
+
+  - id: robusta-vibe-graphql-subscription-no-auth
+    patterns:
+      - pattern: |
+          $SUB: {
+            subscribe: (...) => $PUBSUB.asyncIterator(...)
+          }
+      - pattern-not-inside: |
+          $SUB: {
+            subscribe: (...) => {
+              ...
+              if (!$CTX. ...) { ... }
+              ...
+            }
+          }
+    paths:
+      include:
+        - "**/resolvers/**"
+        - "**/graphql/**"
+    message: >
+      GraphQL subscription without authentication check. Subscriptions
+      maintain persistent WebSocket connections and can stream sensitive data.
+      Verify the user in context before creating the subscription iterator.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: graphql
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-74 | buildSchema With Dynamic Input ------------------------------
+
+  - id: robusta-vibe-graphql-dynamic-schema
+    patterns:
+      - pattern-either:
+          - pattern: "buildSchema(`... ${$INPUT} ...`)"
+          - pattern: buildSchema($INPUT + ...)
+          - pattern: buildSchema(... + $INPUT)
+    message: >
+      GraphQL schema built with dynamic input. This can lead to schema
+      injection where an attacker modifies the API surface. Always use
+      static schema definitions (SDL files or code-first builders with
+      fixed types).
+    metadata:
+      cwe: ["CWE-74"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: graphql
+    severity: ERROR
+    languages: [typescript, javascript]

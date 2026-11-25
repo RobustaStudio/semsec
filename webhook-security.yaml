@@ -1,0 +1,711 @@
+# ============================================================================
+# Robusta Studio - Webhook Security Rules
+# Copyright (c) 2026 Robusta Studio. All rights reserved.
+#
+# Precision rules for detecting unverified webhook handlers, missing
+# signature checks, and common webhook security mistakes across popular
+# providers: Clerk, GitHub, Stripe, Paddle, Shopify, Slack, and more.
+#
+# Usage: semgrep --config webhook-security.yaml /path/to/project
+# ============================================================================
+
+rules:
+
+  # ==========================================================================
+  #                    CLERK — SVIX WEBHOOK VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-clerk-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $BODY = await $REQ.json()
+              ...
+              $BODY.type
+          - pattern: |
+              const $BODY = await $REQ.text()
+              ...
+              JSON.parse($BODY)
+      - pattern-not-inside: |
+          ...
+          $WH.verify(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          new Webhook(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*clerk*"
+        - "**/clerk*webhook*"
+        - "**/api/webhook*"
+    message: >
+      Clerk webhook handler without Svix signature verification. Anyone can
+      send fake Clerk events to this endpoint. Use the Svix library to verify:
+      const wh = new Webhook(CLERK_WEBHOOK_SECRET);
+      const evt = wh.verify(body, headers);
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: Clerk
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #               GITHUB — HMAC WEBHOOK VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-github-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $BODY = await $REQ.json()
+              ...
+              $BODY.action
+          - pattern: |
+              const $BODY = $REQ.body
+              ...
+              $BODY.action
+      - pattern-not-inside: |
+          ...
+          crypto.timingSafeEqual(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          verify(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*github*"
+        - "**/github*webhook*"
+        - "**/api/github*"
+    message: >
+      GitHub webhook handler without HMAC signature verification. Verify the
+      X-Hub-Signature-256 header using crypto.timingSafeEqual with your
+      webhook secret. Without this, attackers can forge GitHub events to
+      trigger deployments, merge PRs, or manipulate your CI/CD pipeline.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: GitHub
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                PADDLE — WEBHOOK VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-paddle-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $BODY = await $REQ.json()
+              ...
+              $BODY.event_type
+          - pattern: |
+              const $BODY = $REQ.body
+              ...
+              $BODY.event_type
+      - pattern-not-inside: |
+          ...
+          $PADDLE.webhooks.unmarshal(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          verify(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*paddle*"
+        - "**/paddle*webhook*"
+        - "**/api/paddle*"
+    message: >
+      Paddle webhook handler without signature verification. Use the Paddle
+      SDK's webhooks.unmarshal() to verify the event signature. Unverified
+      webhooks allow attackers to fake subscription and payment events.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: Paddle
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #             LEMONSQUEEZY — WEBHOOK VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-lemonsqueezy-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $BODY = await $REQ.json()
+              ...
+              $BODY.meta
+          - pattern: |
+              const $BODY = await $REQ.text()
+              ...
+              JSON.parse($BODY)
+      - pattern-not-inside: |
+          ...
+          crypto.timingSafeEqual(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          createHmac(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*lemon*"
+        - "**/lemon*webhook*"
+        - "**/api/lemon*"
+    message: >
+      LemonSqueezy webhook handler without HMAC signature verification.
+      Verify the X-Signature header using crypto.createHmac('sha256', secret)
+      and crypto.timingSafeEqual. Unverified events allow attackers to fake
+      subscription activations and license grants.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: LemonSqueezy
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                RESEND — SVIX WEBHOOK VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-resend-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $BODY = await $REQ.json()
+              ...
+              $BODY.type
+          - pattern: |
+              const $BODY = await $REQ.text()
+              ...
+              JSON.parse($BODY)
+      - pattern-not-inside: |
+          ...
+          $WH.verify(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          new Webhook(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*resend*"
+        - "**/resend*webhook*"
+    message: >
+      Resend webhook handler without Svix signature verification. Resend uses
+      Svix for webhook delivery. Use the Svix library to verify:
+      const wh = new Webhook(RESEND_WEBHOOK_SECRET);
+      const evt = wh.verify(body, headers);
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: Resend
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #               TWILIO — REQUEST VALIDATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-twilio-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $REQ.body.From
+          - pattern: |
+              $REQ.body.To
+          - pattern: |
+              $REQ.body.Body
+          - pattern: |
+              $REQ.body.CallSid
+      - pattern-not-inside: |
+          ...
+          validateRequest(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          webhook(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*twilio*"
+        - "**/twilio*"
+        - "**/api/sms*"
+        - "**/api/voice*"
+    message: >
+      Twilio webhook handler without request validation. Use
+      twilio.validateRequest(authToken, signature, url, params) to verify
+      the X-Twilio-Signature header. Without validation, attackers can
+      forge SMS/voice events and trigger actions in your app.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: Twilio
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            SENDGRID — INBOUND PARSE VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-sendgrid-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $REQ.body.from
+          - pattern: |
+              $REQ.body.subject
+          - pattern: |
+              $REQ.body.text
+      - pattern-not-inside: |
+          ...
+          EventWebhook(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          verify(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*sendgrid*"
+        - "**/sendgrid*"
+        - "**/api/inbound*"
+        - "**/inbound-parse*"
+    message: >
+      SendGrid webhook/Inbound Parse handler without signature verification.
+      Use the SendGrid EventWebhook class to verify the X-Twilio-Email-Event-
+      Webhook-Signature header. Without it, attackers can inject fake emails
+      into your processing pipeline.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: SendGrid
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #              SHOPIFY — HMAC WEBHOOK VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-shopify-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $BODY = await $REQ.text()
+              ...
+              JSON.parse($BODY)
+          - pattern: |
+              const $BODY = $REQ.body
+              ...
+              $BODY.topic
+      - pattern-not-inside: |
+          ...
+          crypto.timingSafeEqual(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          createHmac(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          shopify.webhooks.validate(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*shopify*"
+        - "**/shopify*webhook*"
+        - "**/api/shopify*"
+    message: >
+      Shopify webhook handler without HMAC verification. Verify the
+      X-Shopify-Hmac-Sha256 header using crypto.createHmac('sha256', secret)
+      against the raw request body. Or use the Shopify API library's
+      webhooks.validate() method.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: Shopify
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            SVIX — GENERIC SVIX WEBHOOK VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-svix-no-verify
+    patterns:
+      - pattern: |
+          const $BODY = await $REQ.text()
+          ...
+          JSON.parse($BODY)
+      - pattern-not-inside: |
+          ...
+          $WH.verify(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*"
+    message: >
+      Webhook handler parsing request body without Svix verification. If this
+      endpoint receives Svix-delivered webhooks (Clerk, Resend, Liveblocks,
+      etc.), verify the payload with: const wh = new Webhook(secret);
+      const evt = wh.verify(body, headers);
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: LOW
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: Svix
+    severity: INFO
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        DISCORD — ED25519 INTERACTION VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-discord-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $BODY = await $REQ.json()
+              ...
+              $BODY.type
+          - pattern: |
+              const $BODY = $REQ.body
+              ...
+              $BODY.type
+      - pattern-not-inside: |
+          ...
+          nacl.sign.detached.verify(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          verifyKey(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          ed25519(...)
+          ...
+    paths:
+      include:
+        - "**/discord*"
+        - "**/interaction*"
+        - "**/api/discord*"
+    message: >
+      Discord Interactions endpoint without Ed25519 signature verification.
+      Discord requires all interaction endpoints to verify the X-Signature-
+      Ed25519 and X-Signature-Timestamp headers. Use discord-interactions
+      verifyKey() or tweetnacl. Discord will disable your endpoint if
+      verification fails during their automated checks.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: Discord
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            SLACK — SIGNING SECRET VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-slack-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $BODY = $REQ.body
+              ...
+              $BODY.event
+          - pattern: |
+              const $BODY = await $REQ.json()
+              ...
+              $BODY.event
+      - pattern-not-inside: |
+          ...
+          createHmac(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          timingSafeEqual(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          $APP.event(...)
+          ...
+    paths:
+      include:
+        - "**/slack*"
+        - "**/api/slack*"
+        - "**/api/events*"
+    message: >
+      Slack Events API handler without signing secret verification. Verify
+      the X-Slack-Signature header using HMAC-SHA256 with your signing secret
+      and the X-Slack-Request-Timestamp. The official Bolt SDK does this
+      automatically — use it instead of raw HTTP handlers.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      provider: Slack
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            GENERIC — CATCH-ALL WEBHOOK VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-generic-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: |
+              export async function POST($REQ, ...) {
+                ...
+                const $BODY = await $REQ.json()
+                ...
+              }
+          - pattern: |
+              export async function POST($REQ, ...) {
+                ...
+                const $BODY = await $REQ.text()
+                ...
+              }
+      - pattern-not-inside: |
+          ...
+          verify(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          timingSafeEqual(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          createHmac(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          constructEvent(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          new Webhook(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*/route.*"
+        - "**/webhooks/route.*"
+    message: >
+      Webhook route handler reads the request body without any signature
+      verification. All webhook endpoints should verify the sender's
+      signature using HMAC, Ed25519, or the provider's SDK verification
+      method. Without verification, any attacker can send forged events.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: LOW
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: webhook
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        WEBHOOK — TRUSTING EVENT TYPE BEFORE VERIFICATION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-trust-before-verify
+    patterns:
+      - pattern: |
+          const $BODY = await $REQ.json()
+          ...
+          if ($BODY.type === $TYPE) { ... }
+      - pattern-not-inside: |
+          ...
+          verify(...)
+          ...
+          if ($BODY.type === $TYPE) { ... }
+      - pattern-not-inside: |
+          ...
+          constructEvent(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          new Webhook(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*"
+    message: >
+      Webhook handler branches on event type before verifying the payload
+      signature. Always verify the webhook signature FIRST, then act on the
+      event type from the verified payload. An attacker can send any event
+      type to trigger unintended code paths.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: webhook
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        WEBHOOK — DETAILED ERROR RESPONSES (INFO DISCLOSURE)
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-error-disclosure
+    patterns:
+      - pattern-either:
+          - pattern: |
+              catch ($ERR) {
+                ...
+                return new Response(JSON.stringify($ERR), ...)
+              }
+          - pattern: |
+              catch ($ERR) {
+                ...
+                return Response.json($ERR, ...)
+              }
+          - pattern: |
+              catch ($ERR) {
+                ...
+                return NextResponse.json({ error: $ERR.message, ... }, ...)
+              }
+          - pattern: |
+              catch ($ERR) {
+                ...
+                res.status(...).json({ error: $ERR.message, stack: $ERR.stack })
+              }
+    paths:
+      include:
+        - "**/webhook*"
+    message: >
+      Webhook handler returns detailed error information in the response.
+      This leaks internal implementation details (stack traces, error messages)
+      to the webhook sender. Return a generic 400/500 status with no details:
+      return new Response('Webhook Error', { status: 400 });
+    metadata:
+      cwe: ["CWE-209"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: MEDIUM
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: webhook
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        WEBHOOK — MISSING REPLAY PROTECTION
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-no-idempotency
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $EVT = $WH.verify(...)
+              ...
+              await $DB.create(...)
+          - pattern: |
+              const $EVT = stripe.webhooks.constructEvent(...)
+              ...
+              await $DB.create(...)
+      - pattern-not-inside: |
+          ...
+          $EVT.id
+          ...
+          findUnique(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          idempotency(...)
+          ...
+    paths:
+      include:
+        - "**/webhook*"
+    message: >
+      Webhook handler creates database records without checking for duplicate
+      event delivery. Webhooks can be retried, causing duplicate charges,
+      accounts, or notifications. Store processed event IDs and skip
+      duplicates: if (await db.webhookEvent.findUnique({ where: { eventId } }))
+      return;
+    metadata:
+      cwe: ["CWE-837"]
+      owasp: ["A04:2021 Insecure Design"]
+      confidence: LOW
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: webhook
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        WEBHOOK — HTTP ENDPOINT (NOT HTTPS)
+  # ==========================================================================
+
+  - id: robusta-vibe-webhook-http-url
+    patterns:
+      - pattern-regex: (?i)(?:webhook_url|webhook_endpoint|WEBHOOK_URL)\s*[:=]\s*['"]http://[^'"]+['"]
+    message: >
+      Webhook endpoint URL uses HTTP instead of HTTPS. Webhook payloads
+      often contain sensitive data (user info, payment details) and are
+      transmitted in plain text over HTTP. Always use HTTPS endpoints for
+      webhooks to prevent eavesdropping and tampering.
+    metadata:
+      cwe: ["CWE-319"]
+      owasp: ["A02:2021 Cryptographic Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: webhook
+    severity: ERROR
+    languages: [generic]

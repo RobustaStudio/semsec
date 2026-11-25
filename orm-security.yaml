@@ -1,0 +1,490 @@
+# ============================================================================
+# Robusta Studio - ORM Security Rules (Prisma, Drizzle, Mongoose)
+# Copyright (c) 2026 Robusta Studio. All rights reserved.
+#
+# Precision rules for detecting mass assignment, missing ownership checks,
+# SQL/NoSQL injection, and data exposure through ORM misuse.
+#
+# Usage: semgrep --config orm-security.yaml /path/to/project
+# ============================================================================
+
+rules:
+
+  # ==========================================================================
+  #                        PRISMA — MASS ASSIGNMENT
+  # ==========================================================================
+
+  # -- CWE-915 | Mass Assignment via req.body --------------------------------
+
+  - id: robusta-vibe-prisma-mass-assign-create
+    patterns:
+      - pattern-either:
+          - pattern: "$PRISMA.$MODEL.create({ data: $REQ.body })"
+          - pattern: "$PRISMA.$MODEL.create({ data: $REQ.body, ... })"
+          - pattern: "$PRISMA.$MODEL.create({ ..., data: $BODY, ... })"
+      - pattern-not-inside: |
+          ...
+          $SCHEMA.parse(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          $SCHEMA.safeParse(...)
+          ...
+    message: >
+      Prisma create() receives unvalidated request body directly. An attacker
+      can inject unexpected fields (role, isAdmin, verified) to escalate
+      privileges. Validate with Zod first, or destructure only the fields
+      you expect: { data: { name: body.name, email: body.email } }.
+    metadata:
+      cwe: ["CWE-915"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: prisma
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-prisma-mass-assign-update
+    patterns:
+      - pattern-either:
+          - pattern: "$PRISMA.$MODEL.update({ ..., data: $REQ.body, ... })"
+          - pattern: "$PRISMA.$MODEL.updateMany({ ..., data: $REQ.body, ... })"
+    message: >
+      Prisma update receives unvalidated request body. Attackers can overwrite
+      sensitive fields (role, permissions, billing). Validate the payload with
+      Zod and destructure only the mutable fields.
+    metadata:
+      cwe: ["CWE-915"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: prisma
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #              PRISMA — MISSING OWNERSHIP / WHERE FILTERS
+  # ==========================================================================
+
+  # -- CWE-862 | Dangerous deleteMany Without Ownership ----------------------
+
+  - id: robusta-vibe-prisma-deletemany-no-owner
+    patterns:
+      - pattern: $PRISMA.$MODEL.deleteMany({ ... })
+      - pattern-not-inside: |
+          ...
+          $PRISMA.$MODEL.deleteMany({ where: { ..., userId: $UID, ... } })
+          ...
+      - pattern-not-inside: |
+          ...
+          $PRISMA.$MODEL.deleteMany({ where: { ..., user_id: $UID, ... } })
+          ...
+      - pattern-not-inside: |
+          ...
+          $PRISMA.$MODEL.deleteMany({ where: { ..., ownerId: $UID, ... } })
+          ...
+    message: >
+      Prisma deleteMany() without an ownership filter in the where clause.
+      This may delete records belonging to other users. Always include
+      userId (or equivalent) in the where clause tied to the authenticated
+      user's session.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: prisma
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-prisma-updatemany-no-owner
+    patterns:
+      - pattern: $PRISMA.$MODEL.updateMany({ ... })
+      - pattern-not-inside: |
+          ...
+          $PRISMA.$MODEL.updateMany({ where: { ..., userId: $UID, ... }, ... })
+          ...
+      - pattern-not-inside: |
+          ...
+          $PRISMA.$MODEL.updateMany({ where: { ..., user_id: $UID, ... }, ... })
+          ...
+      - pattern-not-inside: |
+          ...
+          $PRISMA.$MODEL.updateMany({ where: { ..., ownerId: $UID, ... }, ... })
+          ...
+    message: >
+      Prisma updateMany() without an ownership filter. This may modify
+      records belonging to other users. Always scope the where clause to
+      the authenticated user.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: prisma
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                    PRISMA — RAW SQL INJECTION
+  # ==========================================================================
+
+  # -- CWE-89 | $queryRawUnsafe / $executeRawUnsafe --------------------------
+
+  - id: robusta-vibe-prisma-queryraw-unsafe
+    patterns:
+      - pattern-either:
+          - pattern: $PRISMA.$queryRawUnsafe(...)
+          - pattern: $PRISMA.$executeRawUnsafe(...)
+    message: >
+      Prisma $queryRawUnsafe / $executeRawUnsafe is vulnerable to SQL
+      injection. Use the tagged-template version instead:
+      prisma.$queryRaw`SELECT * FROM users WHERE id = ${id}` which
+      automatically parameterizes values.
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: prisma
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-89 | $queryRaw with string concatenation --------------------------
+
+  - id: robusta-vibe-prisma-queryraw-concat
+    patterns:
+      - pattern-either:
+          - pattern: $PRISMA.$queryRaw($STR + ...)
+          - pattern: $PRISMA.$executeRaw($STR + ...)
+    message: >
+      Prisma $queryRaw / $executeRaw called with string concatenation instead
+      of a tagged template literal. This bypasses parameterization and allows
+      SQL injection. Use the tagged template syntax:
+      prisma.$queryRaw`SELECT ... WHERE col = ${val}`.
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: prisma
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                   PRISMA — DATA EXPOSURE
+  # ==========================================================================
+
+  # -- CWE-200 | User Model Returned Without select/omit --------------------
+
+  - id: robusta-vibe-prisma-user-data-exposure
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $USER = await $PRISMA.user.findUnique(...)
+              ...
+              return Response.json($USER)
+          - pattern: |
+              const $USER = await $PRISMA.user.findUnique(...)
+              ...
+              return NextResponse.json($USER)
+          - pattern: |
+              const $USER = await $PRISMA.user.findUnique(...)
+              ...
+              res.json($USER)
+          - pattern: |
+              const $USER = await $PRISMA.user.findFirst(...)
+              ...
+              return Response.json($USER)
+          - pattern: |
+              const $USER = await $PRISMA.user.findFirst(...)
+              ...
+              return NextResponse.json($USER)
+          - pattern: |
+              const $USER = await $PRISMA.user.findFirst(...)
+              ...
+              res.json($USER)
+    message: >
+      Prisma user query returned directly in API response without selecting
+      specific fields. This likely exposes password hashes, internal IDs,
+      and sensitive metadata. Use select to include only needed fields:
+      prisma.user.findUnique({ where, select: { id: true, name: true } }).
+    metadata:
+      cwe: ["CWE-200"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: prisma
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                   DRIZZLE — SQL INJECTION
+  # ==========================================================================
+
+  # -- CWE-89 | sql.raw() With Variable Input -------------------------------
+
+  - id: robusta-vibe-drizzle-sql-raw
+    patterns:
+      - pattern: sql.raw($VAR)
+      - pattern-not: sql.raw("...")
+    message: >
+      Drizzle sql.raw() called with a variable. sql.raw() inserts the string
+      without parameterization, enabling SQL injection. Use the tagged
+      template sql`...${value}...` which parameterizes automatically, or
+      use sql.placeholder() for prepared statements.
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: drizzle
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-89 | db.execute With String Concat --------------------------------
+
+  - id: robusta-vibe-drizzle-execute-concat
+    patterns:
+      - pattern-either:
+          - pattern: $DB.execute($A + ...)
+          - pattern: $DB.execute(sql.raw($A + ...))
+    message: >
+      Drizzle db.execute() with string concatenation. This bypasses
+      parameterization and is vulnerable to SQL injection. Use the tagged
+      template: db.execute(sql`SELECT ... WHERE id = ${id}`).
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: drizzle
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            DRIZZLE — MISSING WHERE CLAUSES
+  # ==========================================================================
+
+  # -- CWE-862 | Delete Without Where ---------------------------------------
+
+  - id: robusta-vibe-drizzle-delete-no-where
+    patterns:
+      - pattern: $DB.delete($TABLE)
+      - pattern-not-inside: |
+          $DB.delete($TABLE).where(...)
+    message: >
+      Drizzle delete() without a .where() clause deletes ALL rows in the
+      table. Always chain .where() to scope the deletion:
+      db.delete(users).where(eq(users.id, id)).
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: drizzle
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-862 | Update Without Where ---------------------------------------
+
+  - id: robusta-vibe-drizzle-update-no-where
+    patterns:
+      - pattern: $DB.update($TABLE).set(...)
+      - pattern-not-inside: |
+          $DB.update($TABLE).set(...).where(...)
+    message: >
+      Drizzle update().set() without a .where() clause updates ALL rows.
+      Always chain .where() to scope the update:
+      db.update(users).set({ name }).where(eq(users.id, id)).
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: drizzle
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                  MONGOOSE — NOSQL INJECTION
+  # ==========================================================================
+
+  # -- CWE-943 | $where Operator JS Injection --------------------------------
+
+  - id: robusta-vibe-mongoose-where-injection
+    patterns:
+      - pattern-either:
+          - pattern: "$MODEL.find({ $where: $INPUT })"
+          - pattern: "$MODEL.findOne({ $where: $INPUT })"
+    message: >
+      Mongoose $where operator executes JavaScript on the MongoDB server.
+      Passing user input here allows NoSQL injection and arbitrary code
+      execution on the database. Remove $where entirely and use standard
+      query operators ($eq, $gt, $in) instead.
+    metadata:
+      cwe: ["CWE-943"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: mongoose
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-915 | Mass Assignment via req.body --------------------------------
+
+  - id: robusta-vibe-mongoose-mass-assign-update
+    patterns:
+      - pattern-either:
+          - pattern: $MODEL.findByIdAndUpdate($ID, $REQ.body)
+          - pattern: $MODEL.findByIdAndUpdate($ID, $REQ.body, ...)
+          - pattern: $MODEL.findOneAndUpdate($FILTER, $REQ.body)
+          - pattern: $MODEL.findOneAndUpdate($FILTER, $REQ.body, ...)
+          - pattern: $MODEL.updateOne($FILTER, $REQ.body)
+          - pattern: $MODEL.updateMany($FILTER, $REQ.body)
+    message: >
+      Mongoose update with unvalidated req.body allows mass assignment.
+      Attackers can set any field including role, isAdmin, or verified.
+      Validate the body first, or destructure only allowed fields:
+      Model.findByIdAndUpdate(id, { name: body.name }).
+    metadata:
+      cwe: ["CWE-915"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: mongoose
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-639 | Delete Without Ownership Check ------------------------------
+
+  - id: robusta-vibe-mongoose-delete-no-owner
+    patterns:
+      - pattern-either:
+          - pattern: $MODEL.findByIdAndDelete($REQ.params.id)
+          - pattern: $MODEL.findByIdAndDelete($REQ.params.$PARAM)
+          - pattern: $MODEL.findByIdAndRemove($REQ.params.id)
+    message: >
+      Mongoose delete using ID directly from request params without verifying
+      the authenticated user owns the record. This is an IDOR vulnerability.
+      Add an ownership filter: Model.findOneAndDelete({ _id: id, userId:
+      session.user.id }).
+    metadata:
+      cwe: ["CWE-639"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: mongoose
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-943 | Query Injection via req.query Spread ------------------------
+
+  - id: robusta-vibe-mongoose-query-injection
+    patterns:
+      - pattern-either:
+          - pattern: $MODEL.find({ ...$REQ.query })
+          - pattern: $MODEL.find($REQ.query)
+          - pattern: $MODEL.findOne({ ...$REQ.query })
+          - pattern: $MODEL.findOne($REQ.query)
+    message: >
+      Mongoose query built directly from req.query. Attackers can inject
+      MongoDB operators like { "$gt": "" } to bypass filters or extract data.
+      Validate and sanitize query parameters, and use explicit field matching:
+      Model.find({ status: req.query.status }).
+    metadata:
+      cwe: ["CWE-943"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: mongoose
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-20 | Missing runValidators on Update ------------------------------
+
+  - id: robusta-vibe-mongoose-no-validators
+    patterns:
+      - pattern-either:
+          - pattern: $MODEL.findByIdAndUpdate($ID, $DATA)
+          - pattern: $MODEL.findOneAndUpdate($FILTER, $DATA)
+          - pattern: $MODEL.updateOne($FILTER, $DATA)
+          - pattern: $MODEL.updateMany($FILTER, $DATA)
+      - pattern-not: "$MODEL.findByIdAndUpdate($ID, $DATA, { ..., runValidators: true, ... })"
+      - pattern-not: "$MODEL.findOneAndUpdate($FILTER, $DATA, { ..., runValidators: true, ... })"
+      - pattern-not: "$MODEL.updateOne($FILTER, $DATA, { ..., runValidators: true, ... })"
+      - pattern-not: "$MODEL.updateMany($FILTER, $DATA, { ..., runValidators: true, ... })"
+    message: >
+      Mongoose update without { runValidators: true }. By default, Mongoose
+      skips schema validation on updates, allowing invalid or malicious data.
+      Always pass { new: true, runValidators: true } as options.
+    metadata:
+      cwe: ["CWE-20"]
+      owasp: ["A03:2021 Injection"]
+      confidence: MEDIUM
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: mongoose
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # -- CWE-915 | Mongoose Create With req.body --------------------------------
+
+  - id: robusta-vibe-mongoose-mass-assign-create
+    patterns:
+      - pattern-either:
+          - pattern: $MODEL.create($REQ.body)
+          - pattern: new $MODEL($REQ.body)
+      - pattern-not-inside: |
+          ...
+          $SCHEMA.parse(...)
+          ...
+      - pattern-not-inside: |
+          ...
+          $SCHEMA.safeParse(...)
+          ...
+    message: >
+      Mongoose document created directly from req.body. Attackers can inject
+      fields not intended to be user-settable (role, isAdmin, verified).
+      Validate with Zod or destructure only allowed fields.
+    metadata:
+      cwe: ["CWE-915"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: mongoose
+    severity: ERROR
+    languages: [typescript, javascript]

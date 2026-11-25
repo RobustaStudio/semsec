@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start"><img src="https://img.shields.io/badge/rules-181-blue?style=for-the-badge" alt="181 Rules"></a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/rules-262-blue?style=for-the-badge" alt="262 Rules"></a>
   <a href="#hardcoded-secrets--75-providers"><img src="https://img.shields.io/badge/providers-75-green?style=for-the-badge" alt="75 Providers"></a>
   <a href="#vulnerability-classes"><img src="https://img.shields.io/badge/CVEs-60%2C517-red?style=for-the-badge" alt="60,517 CVEs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow?style=for-the-badge" alt="MIT License"></a>
@@ -95,6 +95,46 @@ Purpose-built rules for the most common mistakes in AI-assisted / vibe-coded web
 | **Rate Limiting** | 1 | Auth endpoints without rate limiting |
 | **File Upload** | 1 | Upload without file type validation |
 | **Storage** | 1 | Public Supabase bucket uploads |
+
+### React & Vue Client-Side Security (20 rules)
+
+| Category | What It Catches |
+|----------|-----------------|
+| **XSS** | `dangerouslySetInnerHTML`, `v-html`, `innerHTML`, `document.write()`, `ref.current.innerHTML`, iframe `srcdoc`/`src`, `javascript:` URLs, HTML parser libraries |
+| **Code Execution** | `eval()`, `Function()`, `setTimeout(string)` |
+| **postMessage** | Missing origin validation, wildcard `"*"` target |
+| **Open Redirect** | `location.href` / router navigation from URL params |
+| **Token Storage** | Tokens/secrets in `localStorage`/`sessionStorage`, `document.cookie` |
+| **Misc** | `target="_blank"` without `noopener`, `URL.createObjectURL` with untrusted blob |
+
+### ORM Security — Prisma, Drizzle, Mongoose (17 rules)
+
+| ORM | What It Catches |
+|-----|-----------------|
+| **Prisma** | Mass assignment (`create({ data: req.body })`), `deleteMany`/`updateMany` without owner, `$queryRawUnsafe`, raw query concatenation, user object returned unfiltered |
+| **Drizzle** | `sql.raw()` with input, `execute` with concatenation, `delete`/`update` without `.where()` |
+| **Mongoose** | `$where` JS injection, mass assignment on `findByIdAndUpdate`, `findByIdAndDelete` without ownership, query injection via `req.query`, missing `runValidators` |
+
+### Serverless & Edge Functions (15 rules)
+
+| Platform | What It Catches |
+|----------|-----------------|
+| **Cloudflare Workers** | `eval()`/`Function()` in workers, secrets in `wrangler.toml` |
+| **AWS Lambda** | `AuthType: NONE` (SAM + serverless.yml), raw error exposure, secrets in IaC |
+| **Vercel Edge** | Edge handler without auth, narrow middleware matcher |
+| **Deno Deploy** | Path traversal via `Deno.readFile`/`Deno.writeFile` with user input |
+| **General** | CORS wildcard in responses/config, missing body size limit, auth timing attacks, error leaks |
+
+### Webhook Security (16 rules)
+
+Catches unverified webhook handlers for: **Clerk**, **GitHub**, **Paddle**, **LemonSqueezy**, **Resend**, **Twilio**, **SendGrid**, **Shopify**, **Svix**, **Discord**, **Slack**, plus generic catch-all. Also detects trust-before-verify, error disclosure, and replay/idempotency issues.
+
+### tRPC & GraphQL Security (13 rules)
+
+| Framework | What It Catches |
+|-----------|-----------------|
+| **tRPC** | Mutations on `publicProcedure`, DB writes without auth, missing `.input()` validation, full user object returned, verbose error exposure |
+| **GraphQL** | Introspection enabled in production, no depth/complexity limit, resolver mutations without auth, password fields in schema, `persistedQueries: false`, N+1 without DataLoader, subscriptions without auth, dynamic `buildSchema` |
 
 ### Secret Detection (99 rules, 75 providers)
 
@@ -279,6 +319,11 @@ semsec/
 ├── crypto-secrets.yaml          #  7 rules — Weak crypto, PRNG
 ├── hardcoded-secrets.yaml       # 99 rules — 75 providers
 ├── vibe-coding-security.yaml    # 35 rules — Supabase, Next.js, Firebase, Stripe
+├── react-vue-client-security.yaml # 20 rules — XSS, eval, postMessage, token storage
+├── orm-security.yaml            # 17 rules — Prisma, Drizzle, Mongoose
+├── serverless-edge-security.yaml # 15 rules — Workers, Lambda, Edge, Deno
+├── webhook-security.yaml        # 16 rules — Clerk, GitHub, Shopify, Slack, +8 more
+├── trpc-graphql-security.yaml   # 13 rules — tRPC, GraphQL, Apollo
 ├── banner.jpeg
 ├── LICENSE                      # MIT
 └── README.md

@@ -1,0 +1,554 @@
+# ============================================================================
+# Robusta Studio - React & Vue Client-Side Security Rules
+# Copyright (c) 2026 Robusta Studio. All rights reserved.
+#
+# Precision rules for detecting XSS, injection, and client-side security
+# vulnerabilities in React, Vue, and vanilla JS/TS frontend code.
+#
+# Usage: semgrep --config react-vue-client-security.yaml /path/to/project
+# ============================================================================
+
+rules:
+
+  # ==========================================================================
+  #                    REACT — XSS & INJECTION
+  # ==========================================================================
+
+  # -- CWE-79 | dangerouslySetInnerHTML with dynamic input -------------------
+
+  - id: robusta-vibe-react-dangerous-innerhtml
+    patterns:
+      - pattern: |
+          <$EL dangerouslySetInnerHTML={{__html: $VAL}} />
+      - pattern-not: |
+          <$EL dangerouslySetInnerHTML={{__html: "..."}} />
+    message: >
+      dangerouslySetInnerHTML with dynamic content. If the value contains
+      unsanitized user input, this is a direct XSS vector. Use DOMPurify
+      to sanitize: dangerouslySetInnerHTML={{__html: DOMPurify.sanitize(val)}}.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: react-xss
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-79 | React ref.current.innerHTML bypass --------------------------
+
+  - id: robusta-vibe-react-ref-innerhtml
+    pattern: $REF.current.innerHTML = $VAL
+    message: >
+      Setting innerHTML via a React ref bypasses React's XSS protections
+      entirely. Use React state and JSX rendering instead, or sanitize with
+      DOMPurify before assignment.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: react-xss
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                    VUE — XSS & INJECTION
+  # ==========================================================================
+
+  # -- CWE-79 | v-html with dynamic input -----------------------------------
+
+  - id: robusta-vibe-vue-v-html
+    patterns:
+      - pattern-regex: v-html\s*=\s*"[^"]*[^"']*"
+    paths:
+      include:
+        - "**/*.vue"
+    message: >
+      Vue v-html directive renders raw HTML and is a direct XSS vector when
+      bound to user-controlled data. Use text interpolation {{ }} for safe
+      output, or sanitize with DOMPurify before binding.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: vue-xss
+    severity: WARNING
+    languages: [generic]
+
+  # ==========================================================================
+  #                    DOM — INJECTION & XSS
+  # ==========================================================================
+
+  # -- CWE-79 | innerHTML assignment ----------------------------------------
+
+  - id: robusta-vibe-dom-innerhtml
+    patterns:
+      - pattern-either:
+          - pattern: $EL.innerHTML = $VAL
+          - pattern: $EL.outerHTML = $VAL
+      - pattern-not: $EL.innerHTML = ""
+      - pattern-not: $EL.innerHTML = ''
+      - pattern-not: $EL.outerHTML = ""
+      - pattern-not: $EL.outerHTML = ''
+    message: >
+      Direct innerHTML/outerHTML assignment with dynamic content is a DOM
+      XSS vector. Use textContent for text, or sanitize with DOMPurify:
+      el.innerHTML = DOMPurify.sanitize(value).
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: dom-xss
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-79 | document.write with dynamic input ---------------------------
+
+  - id: robusta-vibe-dom-document-write
+    patterns:
+      - pattern-either:
+          - pattern: document.write($VAL)
+          - pattern: document.writeln($VAL)
+      - pattern-not: document.write("...")
+      - pattern-not: document.writeln("...")
+    message: >
+      document.write() with dynamic content is a DOM XSS sink. It also blocks
+      page rendering. Use DOM APIs (createElement, textContent) or React/Vue
+      rendering instead.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: dom-xss
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # -- CWE-95 | eval / Function constructor ---------------------------------
+
+  - id: robusta-vibe-eval-usage
+    patterns:
+      - pattern-either:
+          - pattern: eval($CODE)
+          - pattern: new Function($CODE)
+          - pattern: new Function(..., $CODE)
+          - pattern: setTimeout($CODE, ...)
+          - pattern: setInterval($CODE, ...)
+      - pattern-not: eval("...")
+      - pattern-not: setTimeout("...", ...)
+      - pattern-not: setInterval("...", ...)
+    message: >
+      eval() or Function() with dynamic input enables arbitrary code
+      execution. If the input comes from users, URLs, or APIs, this is a
+      critical injection vector. Use JSON.parse() for data, or refactor to
+      avoid dynamic code evaluation entirely.
+    metadata:
+      cwe: ["CWE-95"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: code-injection
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            POSTMESSAGE — MISSING ORIGIN VALIDATION
+  # ==========================================================================
+
+  # -- CWE-346 | postMessage listener without origin check -------------------
+
+  - id: robusta-vibe-postmessage-no-origin
+    patterns:
+      - pattern: |
+          window.addEventListener("message", function($EVENT) {
+            ...
+          })
+      - pattern-not: |
+          window.addEventListener("message", function($EVENT) {
+            ...
+            $EVENT.origin
+            ...
+          })
+    message: >
+      postMessage event listener without checking event.origin. Any website
+      can send messages to your window. Always validate the origin:
+      if (event.origin !== 'https://trusted.com') return;
+    metadata:
+      cwe: ["CWE-346"]
+      owasp: ["A07:2021 Identification and Authentication Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: postmessage
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-postmessage-wildcard
+    patterns:
+      - pattern-either:
+          - pattern: $WIN.postMessage($DATA, "*")
+          - pattern: window.parent.postMessage($DATA, "*")
+          - pattern: window.opener.postMessage($DATA, "*")
+    message: >
+      postMessage with wildcard "*" target origin. Any window can receive this
+      message, including an attacker's iframe. Specify the exact target origin:
+      window.postMessage(data, "https://trusted.com").
+    metadata:
+      cwe: ["CWE-346"]
+      owasp: ["A07:2021 Identification and Authentication Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: postmessage
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            OPEN REDIRECT — LOCATION FROM URL PARAMS
+  # ==========================================================================
+
+  # -- CWE-601 | Open redirect via URL params -------------------------------
+
+  - id: robusta-vibe-open-redirect-location
+    patterns:
+      - pattern-either:
+          - pattern: window.location.href = $PARAMS.get(...)
+          - pattern: window.location = $PARAMS.get(...)
+          - pattern: location.href = $PARAMS.get(...)
+          - pattern: window.location.replace($PARAMS.get(...))
+          - pattern: window.location.assign($PARAMS.get(...))
+    message: >
+      Setting window.location from URL search parameters enables open
+      redirect attacks. Attackers can craft links that redirect users to
+      phishing sites. Validate the redirect URL against an allowlist of
+      your own domain paths.
+    metadata:
+      cwe: ["CWE-601"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: open-redirect
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-open-redirect-router
+    patterns:
+      - pattern-either:
+          - pattern: router.push($PARAMS.get(...))
+          - pattern: router.replace($PARAMS.get(...))
+          - pattern: navigate($PARAMS.get(...))
+    message: >
+      Client-side router navigation using URL parameters. This can lead to
+      open redirects or navigating to attacker-controlled routes. Validate
+      the destination against an allowlist of safe paths.
+    metadata:
+      cwe: ["CWE-601"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: open-redirect
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            COOKIES — CLIENT-SIDE ACCESS
+  # ==========================================================================
+
+  # -- CWE-1004 | Client-side cookie without HttpOnly -----------------------
+
+  - id: robusta-vibe-cookie-token-client
+    patterns:
+      - pattern-either:
+          - pattern-regex: document\.cookie\s*=\s*[`'"](?:token|session|jwt|auth|access_token|refresh_token)
+          - pattern-regex: document\.cookie\s*=\s*[`'"]\S*(?:token|session|jwt|auth)=
+    message: >
+      Storing authentication token in document.cookie from client-side code.
+      Cookies set via JavaScript cannot have the HttpOnly flag, making them
+      accessible to XSS attacks. Set auth cookies from the server with
+      HttpOnly, Secure, and SameSite=Lax flags.
+    metadata:
+      cwe: ["CWE-1004"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: cookies
+    severity: ERROR
+    languages: [generic]
+
+  # ==========================================================================
+  #            IFRAME — SRCDOC & SRC FROM USER INPUT
+  # ==========================================================================
+
+  # -- CWE-79 | Iframe srcdoc / src from dynamic input ----------------------
+
+  - id: robusta-vibe-iframe-srcdoc-dynamic
+    patterns:
+      - pattern-either:
+          - pattern: <iframe srcdoc={$VAL} />
+          - pattern: <iframe srcdoc={$VAL} $...ATTRS />
+    message: >
+      Iframe srcdoc set from dynamic value. The srcdoc attribute renders
+      raw HTML in the iframe context. Sanitize the content with DOMPurify
+      or use sandbox attributes to restrict capabilities.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: iframe
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-iframe-src-dynamic
+    patterns:
+      - pattern-either:
+          - pattern: <iframe src={$VAL} />
+          - pattern: <iframe src={$VAL} $...ATTRS />
+      - pattern-not: <iframe src="..." $...ATTRS />
+    message: >
+      Iframe src set from dynamic value. If the URL comes from user input,
+      attackers can load malicious pages inside your app. Validate the URL
+      against an allowlist and use sandbox and CSP frame-src to limit risk.
+    metadata:
+      cwe: ["CWE-601"]
+      owasp: ["A03:2021 Injection"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: iframe
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            JAVASCRIPT: URLS — XSS VIA HREF
+  # ==========================================================================
+
+  # -- CWE-79 | javascript: protocol in href --------------------------------
+
+  - id: robusta-vibe-javascript-url-href
+    patterns:
+      - pattern-either:
+          - pattern: <a href={$VAL} ...>...</a>
+          - pattern: <a href={$VAL}>...</a>
+      - pattern-not: <a href="..." ...>...</a>
+      - pattern-not: <a href='...' ...>...</a>
+    message: >
+      Anchor href set from dynamic value. If the value can start with
+      "javascript:", clicking the link executes arbitrary JavaScript. Validate
+      the URL starts with https:// or / (relative path), and reject
+      javascript:, data:, and vbscript: protocols.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: xss
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-javascript-protocol-literal
+    patterns:
+      - pattern-regex: "(?:href|src|action)\\s*=\\s*['\"]\\s*javascript:"
+    message: >
+      Hardcoded javascript: URL in HTML attribute. This executes JavaScript
+      when the element is clicked or loaded. Remove the javascript: protocol
+      and use proper event handlers instead.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: xss
+    severity: ERROR
+    languages: [generic]
+
+  # ==========================================================================
+  #        LOCALSTORAGE — TOKENS & SECRETS IN BROWSER STORAGE
+  # ==========================================================================
+
+  # -- CWE-922 | Storing secrets in browser storage -------------------------
+
+  - id: robusta-vibe-localstorage-token
+    patterns:
+      - pattern-either:
+          - pattern: localStorage.setItem("token", ...)
+          - pattern: localStorage.setItem("access_token", ...)
+          - pattern: localStorage.setItem("accessToken", ...)
+          - pattern: localStorage.setItem("auth_token", ...)
+          - pattern: localStorage.setItem("authToken", ...)
+          - pattern: localStorage.setItem("jwt", ...)
+          - pattern: localStorage.setItem("refresh_token", ...)
+          - pattern: localStorage.setItem("refreshToken", ...)
+          - pattern: localStorage.setItem("session", ...)
+          - pattern: localStorage.setItem("id_token", ...)
+          - pattern: sessionStorage.setItem("token", ...)
+          - pattern: sessionStorage.setItem("access_token", ...)
+          - pattern: sessionStorage.setItem("accessToken", ...)
+          - pattern: sessionStorage.setItem("jwt", ...)
+          - pattern: sessionStorage.setItem("refresh_token", ...)
+          - pattern: sessionStorage.setItem("session", ...)
+    message: >
+      Authentication token stored in localStorage/sessionStorage. Browser
+      storage is accessible to any JavaScript on the page, including XSS
+      payloads. Use HttpOnly cookies set from the server for auth tokens,
+      which are inaccessible to JavaScript.
+    metadata:
+      cwe: ["CWE-922"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: storage
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-localstorage-secret
+    patterns:
+      - pattern-either:
+          - pattern: localStorage.setItem("api_key", ...)
+          - pattern: localStorage.setItem("apiKey", ...)
+          - pattern: localStorage.setItem("secret", ...)
+          - pattern: localStorage.setItem("password", ...)
+          - pattern: localStorage.setItem("private_key", ...)
+          - pattern: localStorage.setItem("privateKey", ...)
+          - pattern: sessionStorage.setItem("api_key", ...)
+          - pattern: sessionStorage.setItem("apiKey", ...)
+          - pattern: sessionStorage.setItem("secret", ...)
+          - pattern: sessionStorage.setItem("password", ...)
+    message: >
+      Storing secrets (API keys, passwords, private keys) in browser storage.
+      Any script on the page can read these values. Store secrets server-side
+      only. If needed client-side, use short-lived tokens with strict scoping.
+    metadata:
+      cwe: ["CWE-922"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: storage
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        TARGET _BLANK — REVERSE TABNAPPING
+  # ==========================================================================
+
+  # -- CWE-1022 | target="_blank" without noopener --------------------------
+
+  - id: robusta-vibe-target-blank-noopener
+    patterns:
+      - pattern-regex: <a\s[^>]*target\s*=\s*['"]\s*_blank\s*['"][^>]*>
+      - pattern-not-regex: <a\s[^>]*rel\s*=\s*['"][^'"]*noopener[^'"]*['"][^>]*>
+    paths:
+      include:
+        - "**/*.vue"
+        - "**/*.html"
+        - "**/*.svelte"
+    message: >
+      Anchor with target="_blank" without rel="noopener noreferrer". The
+      opened page can access window.opener and redirect your page to a
+      phishing site. Add rel="noopener noreferrer" to all external links.
+    metadata:
+      cwe: ["CWE-1022"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: tabnapping
+    severity: WARNING
+    languages: [generic]
+
+  # ==========================================================================
+  #        URL.createObjectURL — UNSAFE BLOB USAGE
+  # ==========================================================================
+
+  # -- CWE-79 | createObjectURL with untrusted blob -------------------------
+
+  - id: robusta-vibe-createobjecturl-unsafe
+    patterns:
+      - pattern-either:
+          - pattern: |
+              $BLOB = new Blob([$INPUT], ...)
+              ...
+              URL.createObjectURL($BLOB)
+          - pattern: |
+              URL.createObjectURL(new Blob([$INPUT], ...))
+    message: >
+      URL.createObjectURL with a Blob containing dynamic content. If the blob
+      is created from user input with an HTML/SVG content type, it can execute
+      JavaScript when loaded. Validate the content type is safe (e.g.,
+      text/plain, application/json) and sanitize the content.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: MEDIUM
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: blob
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        ADDITIONAL — REACT PATTERNS
+  # ==========================================================================
+
+  # -- CWE-79 | React component rendering raw HTML string -------------------
+
+  - id: robusta-vibe-react-html-parser
+    patterns:
+      - pattern-either:
+          - pattern: ReactHtmlParser($INPUT)
+          - pattern: parse($INPUT)
+          - pattern: htmlParse($INPUT)
+    paths:
+      include:
+        - "**/*.tsx"
+        - "**/*.jsx"
+    message: >
+      Using an HTML parser library to render raw HTML in React. These parsers
+      bypass React's built-in XSS protections. Use DOMPurify to sanitize
+      before parsing, or use dangerouslySetInnerHTML with sanitization.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: react-xss
+    severity: WARNING
+    languages: [typescript, javascript]
