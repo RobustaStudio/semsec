@@ -110,15 +110,34 @@ rules:
 
   - id: robusta-py-idor-django-get-object
     patterns:
-      - pattern: |
-          $OBJ = $MODEL.objects.get(pk=$ID)
+      - pattern-either:
+          - pattern-inside: |
+              def $VIEW(request, ...):
+                ...
+          - pattern-inside: |
+              def $VIEW(self, request, ...):
+                ...
+      - pattern-either:
+          - pattern: $OBJ = $MODEL.objects.get($KEY=$ID)
+          - pattern: $OBJ = $MODEL.objects.filter($KEY=$ID).first()
+          - pattern: $OBJ = get_object_or_404($MODEL, $KEY=$ID)
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ^(pk|id)$
       - pattern-not-inside: |
-          $OBJ = $MODEL.objects.get(pk=$ID)
+          $OBJ = $LOOKUP
           ...
-          if $OBJ.user != request.user:
+          if <... $OBJ.$ATTR != request.user ...>:
               ...
       - pattern-not-inside: |
-          $OBJ = get_object_or_404($MODEL, pk=$ID, user=request.user)
+          $OBJ = $LOOKUP
+          ...
+          if <... request.user != $OBJ.$ATTR ...>:
+              ...
+      - pattern-not-inside: |
+          $OBJ = $LOOKUP
+          ...
+          self.check_object_permissions(request, $OBJ)
     message: >
       Object fetched by user-supplied ID without ownership check.
       CVE-2024-9298: ticket ID param returns other users' data (IDOR).
