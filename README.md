@@ -354,7 +354,11 @@ Found a false positive? Missing a provider? Have a CVE pattern we should add?
 1. Open an issue with the details
 2. Or submit a PR — rules follow the existing format with CWE/OWASP metadata
 
-All rules must pass `semgrep --validate` before merge.
+All rules must pass `semgrep --validate` before merge. Add a `# ruleid:` and an `# ok:` case for your rule to `tests/<rules-file>.<ext>` and run:
+
+```bash
+semgrep --test --config crypto-secrets.yaml tests/crypto-secrets.py
+```
 
 ---
 
