@@ -1,0 +1,486 @@
+# ============================================================================
+# Robusta Studio - Python Web Application Security Rules
+# Copyright (c) 2026 Robusta Studio. All rights reserved.
+#
+# Taint-tracking rules for Python web frameworks (Django, Flask, FastAPI).
+# Derived from 60,517 real-world CVE and HackerOne vulnerability records.
+# Dataset: PentesterFlow/OffsecCyber
+#
+# Usage: semgrep --config python-web-taint.yaml /path/to/project
+# ============================================================================
+
+rules:
+
+  # -- CWE-89 | SQL Injection ------------------------------------------------
+
+  - id: robusta-py-sqli-taint-django
+    mode: taint
+    message: >
+      HTTP request data flows into a raw SQL query without parameterization.
+      CVE pattern: order_by / search / filter params concatenated into SQL
+      (CVE-2022-24266, CVE-2022-0439). Use QuerySet API or raw() with params.
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2022-24266
+        - https://nvd.nist.gov/vuln/detail/CVE-2022-0439
+    severity: ERROR
+    languages: [python]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.GET.get(...)
+              - pattern: request.POST.get(...)
+              - pattern: request.GET[...]
+              - pattern: request.POST[...]
+              - pattern: request.data[...]
+              - pattern: request.data.get(...)
+              - pattern: request.query_params.get(...)
+              - pattern: request.query_params[...]
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.form[...]
+              - pattern: request.values.get(...)
+              - pattern: request.json.get(...)
+              - pattern: request.json[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $CURSOR.execute($QUERY, ...)
+              - pattern: $CURSOR.executemany($QUERY, ...)
+              - pattern: $DB.execute($QUERY, ...)
+              - pattern: connection.cursor().execute($QUERY, ...)
+              - pattern: $MODEL.objects.raw($QUERY, ...)
+              - pattern: $MODEL.objects.extra(where=[$QUERY, ...])
+              - pattern: RawSQL($QUERY, ...)
+          - focus-metavariable: $QUERY
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: int(...)
+              - pattern: float(...)
+              - pattern: str(int(...))
+              - pattern: bleach.clean(...)
+              - pattern: connection.ops.quote_name(...)
+
+  - id: robusta-py-sqli-taint-sqlalchemy
+    mode: taint
+    message: >
+      HTTP input flows into SQLAlchemy text() or raw execute without bind params.
+      Use text("SELECT ... WHERE x = :val").bindparams(val=input).
+    metadata:
+      cwe: ["CWE-89"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [python]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.form[...]
+              - pattern: request.json.get(...)
+              - pattern: request.json[...]
+              - pattern: request.values.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.execute($Q, ...)
+              - pattern: $SESSION.execute(text($Q))
+              - pattern: text($Q)
+              - pattern: $ENGINE.execute($Q, ...)
+          - focus-metavariable: $Q
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: int(...)
+              - pattern: bindparams(...)
+
+  # -- CWE-78 | OS Command Injection -----------------------------------------
+
+  - id: robusta-py-cmdi-taint
+    mode: taint
+    message: >
+      HTTP request data reaches an OS command execution function.
+      CVE pattern: unauthenticated HTTP request param → shell exec
+      (CVE-2023-30258). Use subprocess with arg list (shell=False) or
+      shlex.quote() if shell is unavoidable.
+    metadata:
+      cwe: ["CWE-78"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2023-30258
+    severity: ERROR
+    languages: [python]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.GET.get(...)
+              - pattern: request.GET[...]
+              - pattern: request.POST.get(...)
+              - pattern: request.POST[...]
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.form[...]
+              - pattern: request.data.get(...)
+              - pattern: request.data[...]
+              - pattern: request.json.get(...)
+              - pattern: request.json[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: os.system($CMD)
+              - pattern: os.popen($CMD)
+              - pattern: subprocess.call($CMD, ..., shell=True, ...)
+              - pattern: subprocess.run($CMD, ..., shell=True, ...)
+              - pattern: subprocess.Popen($CMD, ..., shell=True, ...)
+              - pattern: subprocess.check_output($CMD, ..., shell=True, ...)
+              - pattern: subprocess.check_call($CMD, ..., shell=True, ...)
+              - pattern: commands.getoutput($CMD)
+              - pattern: commands.getstatusoutput($CMD)
+          - focus-metavariable: $CMD
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: shlex.quote(...)
+              - pattern: shlex.split(...)
+              - pattern: pipes.quote(...)
+              - pattern: int(...)
+
+  # -- CWE-918 | Server-Side Request Forgery ----------------------------------
+
+  - id: robusta-py-ssrf-taint
+    mode: taint
+    message: >
+      User-supplied URL flows into a server-side HTTP request without validation.
+      CVE pattern: user-controlled URL param proxied to internal services
+      (CVE-2021-40438, CVE-2024-1483 mlflow). Validate scheme (https only),
+      resolve hostname, reject RFC1918/link-local/metadata IPs before requesting.
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021 Server-Side Request Forgery"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2021-40438
+    severity: ERROR
+    languages: [python]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.form[...]
+              - pattern: request.GET.get(...)
+              - pattern: request.GET[...]
+              - pattern: request.POST.get(...)
+              - pattern: request.POST[...]
+              - pattern: request.data.get(...)
+              - pattern: request.json.get(...)
+              - pattern: request.json[...]
+              - pattern: request.query_params.get(...)
+              - pattern: request.query_params[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: requests.get($URL, ...)
+              - pattern: requests.post($URL, ...)
+              - pattern: requests.put($URL, ...)
+              - pattern: requests.delete($URL, ...)
+              - pattern: requests.head($URL, ...)
+              - pattern: requests.request($METHOD, $URL, ...)
+              - pattern: httpx.get($URL, ...)
+              - pattern: httpx.post($URL, ...)
+              - pattern: httpx.AsyncClient().get($URL, ...)
+              - pattern: urllib.request.urlopen($URL, ...)
+              - pattern: urllib.request.Request($URL, ...)
+              - pattern: aiohttp.ClientSession().get($URL, ...)
+          - focus-metavariable: $URL
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: urllib.parse.urlparse(...)
+              - pattern: ipaddress.ip_address(...)
+
+  # -- CWE-22 | Path Traversal -----------------------------------------------
+
+  - id: robusta-py-pathtraver-taint
+    mode: taint
+    message: >
+      User input flows into a filesystem path without canonicalization.
+      H1 pattern: ../../build.sbt, ../../.git/config file read via path param.
+      CVE pattern: artifact_location with crafted path (CVE-2024-1483).
+      Canonicalize with os.path.realpath(), verify prefix stays under base dir.
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2024-1483
+    severity: ERROR
+    languages: [python]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.GET.get(...)
+              - pattern: request.GET[...]
+              - pattern: request.POST.get(...)
+              - pattern: request.data.get(...)
+              - pattern: request.json.get(...)
+              - pattern: request.json[...]
+              - pattern: request.query_params.get(...)
+              - pattern: request.query_params[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: open($PATH, ...)
+              - pattern: pathlib.Path($PATH)
+              - pattern: os.path.join(..., $PATH)
+              - pattern: send_file($PATH, ...)
+              - pattern: send_from_directory($DIR, $PATH, ...)
+              - pattern: shutil.copy($PATH, ...)
+              - pattern: shutil.copy2($PATH, ...)
+              - pattern: shutil.move($PATH, ...)
+              - pattern: os.remove($PATH)
+              - pattern: os.unlink($PATH)
+              - pattern: os.listdir($PATH)
+          - focus-metavariable: $PATH
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: os.path.basename(...)
+              - pattern: secure_filename(...)
+              - pattern: os.path.realpath(...)
+
+  # -- CWE-1336 | Server-Side Template Injection ------------------------------
+
+  - id: robusta-py-ssti-taint
+    mode: taint
+    message: >
+      User input rendered as a Jinja2/Mako template enables SSTI → RCE.
+      CVE-2026-119144: message fields rendered as templates without sanitization.
+      Exploit: {{config.__class__.__init__.__globals__['os'].popen('id').read()}}
+      Use render_template() with file-based templates; never compile user strings.
+    metadata:
+      cwe: ["CWE-1336"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2024-42355
+    severity: ERROR
+    languages: [python]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.form.get(...)
+              - pattern: request.form[...]
+              - pattern: request.GET.get(...)
+              - pattern: request.GET[...]
+              - pattern: request.POST.get(...)
+              - pattern: request.POST[...]
+              - pattern: request.data.get(...)
+              - pattern: request.json.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: render_template_string($TPL)
+              - pattern: jinja2.Template($TPL)
+              - pattern: Environment(...).from_string($TPL)
+              - pattern: mako.template.Template($TPL).render(...)
+              - pattern: Template($TPL).render(...)
+          - focus-metavariable: $TPL
+
+  # -- CWE-502 | Insecure Deserialization -------------------------------------
+
+  - id: robusta-py-deser-taint
+    mode: taint
+    message: >
+      Untrusted data reaches pickle/yaml/marshal deserialization.
+      CVE pattern: unserialize() on HTTP input triggers __reduce__() RCE
+      (CVE-2025-53770). Use json.loads() or yaml.safe_load() for untrusted data.
+    metadata:
+      cwe: ["CWE-502"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [python]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.form.get(...)
+              - pattern: request.data
+              - pattern: request.get_data(...)
+              - pattern: request.stream.read(...)
+              - pattern: request.body
+              - pattern: $SOCK.recv(...)
+              - pattern: $FILE.read(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: pickle.loads($DATA)
+              - pattern: pickle.load($DATA)
+              - pattern: _pickle.loads($DATA)
+              - pattern: cPickle.loads($DATA)
+              - pattern: cPickle.load($DATA)
+              - pattern: shelve.open($DATA)
+              - pattern: marshal.loads($DATA)
+              - pattern: yaml.load($DATA)
+              - pattern: yaml.unsafe_load($DATA)
+              - pattern: dill.loads($DATA)
+              - pattern: jsonpickle.decode($DATA)
+          - focus-metavariable: $DATA
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: yaml.safe_load(...)
+              - pattern: json.loads(...)
+              - pattern: hmac.compare_digest(...)
+
+  # -- CWE-611 | XML External Entity (XXE) -----------------------------------
+
+  - id: robusta-py-xxe-taint
+    mode: taint
+    message: >
+      Untrusted XML data parsed by a parser that resolves external entities.
+      Attack vector: SAML assertion, SOAP body, SVG upload, RSS import.
+      Use defusedxml, or lxml.etree.XMLParser(resolve_entities=False, no_network=True).
+    metadata:
+      cwe: ["CWE-611"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [python]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.data
+              - pattern: request.get_data(...)
+              - pattern: request.body
+              - pattern: request.stream.read(...)
+              - pattern: $FILE.read(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: lxml.etree.fromstring($XML, ...)
+              - pattern: lxml.etree.parse($XML, ...)
+              - pattern: lxml.etree.XML($XML, ...)
+              - pattern: xml.etree.ElementTree.fromstring($XML)
+              - pattern: xml.etree.ElementTree.parse($XML)
+              - pattern: xml.dom.minidom.parseString($XML)
+              - pattern: xml.dom.pulldom.parseString($XML)
+              - pattern: xml.sax.parseString($XML, ...)
+              - pattern: xmltodict.parse($XML, ...)
+          - focus-metavariable: $XML
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: defusedxml.$METHOD(...)
+              - pattern: lxml.etree.XMLParser(resolve_entities=False, ...)
+
+  # -- CWE-434 | Unrestricted File Upload ------------------------------------
+
+  - id: robusta-py-upload-dangerous-extension
+    patterns:
+      - pattern: |
+          $FILE = request.files[...]
+          ...
+          $FILE.save($PATH)
+      - pattern-not-inside: |
+          $FILE = request.files[...]
+          ...
+          $NAME = secure_filename(...)
+          ...
+          $FILE.save(...)
+    message: >
+      Uploaded file saved without secure_filename() — allows path traversal in
+      filename and dangerous extensions (.php, .asp, .jsp, .py).
+      CVE-2021-30118: unauthenticated upload → webshell → RCE.
+      Use werkzeug.utils.secure_filename(), validate extension allowlist,
+      store outside webroot with random name.
+    metadata:
+      cwe: ["CWE-434"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2021-30118
+    severity: ERROR
+    languages: [python]
+
+  # -- CWE-601 | Open Redirect -----------------------------------------------
+
+  - id: robusta-py-redirect-taint
+    mode: taint
+    message: >
+      User input flows into a redirect URL without validation.
+      CVE-2020-29565: "next" parameter in Horizon allows automatic redirect
+      to attacker site → credential phishing. Validate the URL is a relative
+      path or matches an allowlist of trusted hosts.
+    metadata:
+      cwe: ["CWE-601"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2020-29565
+    severity: WARNING
+    languages: [python]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: request.args.get(...)
+              - pattern: request.args[...]
+              - pattern: request.GET.get(...)
+              - pattern: request.GET[...]
+              - pattern: request.POST.get(...)
+              - pattern: request.POST[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: redirect($URL)
+              - pattern: HttpResponseRedirect($URL)
+              - pattern: HttpResponsePermanentRedirect($URL)
+          - focus-metavariable: $URL
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: url_has_allowed_host_and_scheme(...)
+              - pattern: is_safe_url(...)

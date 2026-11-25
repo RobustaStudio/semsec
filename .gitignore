@@ -1,0 +1,23 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Semgrep
+.semgrep/
+.semgrep_logs/
+
+# Test artifacts
+*.sarif
+*.json
+!package.json
+
+# Environment
+.env
+.env.*

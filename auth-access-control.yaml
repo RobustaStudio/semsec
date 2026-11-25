@@ -1,0 +1,204 @@
+# ============================================================================
+# Robusta Studio - Authentication & Access Control Security Rules
+# Copyright (c) 2026 Robusta Studio. All rights reserved.
+#
+# Rules for authentication bypass, broken access control, IDOR, CSRF,
+# hardcoded secrets, and missing authorization checks.
+# Derived from 60,517 real-world CVE and HackerOne vulnerability records.
+# Dataset: PentesterFlow/OffsecCyber
+#
+# Usage: semgrep --config auth-access-control.yaml /path/to/project
+# ============================================================================
+
+rules:
+
+  # -- CWE-798 | Hardcoded Credentials ---------------------------------------
+
+  - id: robusta-py-hardcoded-jwt-secret
+    patterns:
+      - pattern-either:
+          - pattern: jwt.encode($PAYLOAD, "...", ...)
+          - pattern: jwt.decode($TOKEN, "...", ...)
+    message: >
+      JWT signed/verified with a hardcoded secret string.
+      CVE-2023-27584: Dragonfly2 hardcoded JWT secret → auth bypass (CVSS 9.8).
+      CVE-2025-69971: FUXA hardcoded JWT secret → full auth bypass.
+      Load the secret from an environment variable or secrets manager.
+    metadata:
+      cwe: ["CWE-321", "CWE-798"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2023-27584
+    severity: ERROR
+    languages: [python]
+
+  - id: robusta-js-hardcoded-jwt-secret
+    patterns:
+      - pattern-either:
+          - pattern: jwt.sign($PAYLOAD, "...", ...)
+          - pattern: jwt.verify($TOKEN, "...", ...)
+          - pattern: jsonwebtoken.sign($PAYLOAD, "...", ...)
+          - pattern: jsonwebtoken.verify($TOKEN, "...", ...)
+    message: >
+      JWT signed/verified with a hardcoded secret.
+      CVE-2025-69971: FUXA hardcoded secret → full authentication bypass (CVSS 9.8).
+      Load from process.env or a secrets manager.
+    metadata:
+      cwe: ["CWE-321", "CWE-798"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  # -- CWE-306 | Missing Authentication --------------------------------------
+
+  - id: robusta-py-django-no-auth-apiview
+    patterns:
+      - pattern: |
+          class $VIEW(APIView):
+              ...
+              permission_classes = []
+              ...
+              def $METHOD(self, request, ...):
+                  ...
+    message: >
+      DRF APIView with empty permission_classes — unauthenticated access to endpoint.
+      CVE-2020-13927: Airflow API default allow-all → unauthenticated access.
+      Set permission_classes = [IsAuthenticated] or project-level default.
+    metadata:
+      cwe: ["CWE-306"]
+      owasp: ["A07:2021 Identification and Authentication Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [python]
+
+  - id: robusta-py-flask-no-auth-state-change
+    patterns:
+      - pattern: |
+          @$APP.route($PATH, methods=[..., "POST", ...])
+          def $FUNC(...):
+              ...
+      - pattern-not-inside: |
+          @login_required
+          def $FUNC(...):
+              ...
+      - pattern-not-inside: |
+          @jwt_required(...)
+          def $FUNC(...):
+              ...
+    message: >
+      POST route without authentication decorator — may expose state-changing
+      operations to unauthenticated users. Add @login_required or equivalent.
+    metadata:
+      cwe: ["CWE-306"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: WARNING
+    languages: [python]
+
+  # -- CWE-639 | Insecure Direct Object Reference ---------------------------
+
+  - id: robusta-py-idor-django-get-object
+    patterns:
+      - pattern: |
+          $OBJ = $MODEL.objects.get(pk=$ID)
+      - pattern-not-inside: |
+          $OBJ = $MODEL.objects.get(pk=$ID)
+          ...
+          if $OBJ.user != request.user:
+              ...
+      - pattern-not-inside: |
+          $OBJ = get_object_or_404($MODEL, pk=$ID, user=request.user)
+    message: >
+      Object fetched by user-supplied ID without ownership check.
+      CVE-2024-9298: ticket ID param returns other users' data (IDOR).
+      PortSwigger: change id param to "administrator" → access admin.
+      Add user=request.user filter or check ownership after fetch.
+    metadata:
+      cwe: ["CWE-639"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2024-9298
+    severity: WARNING
+    languages: [python]
+
+  # -- CWE-352 | Cross-Site Request Forgery ----------------------------------
+
+  - id: robusta-py-django-csrf-exempt
+    pattern: |
+      @csrf_exempt
+      def $FUNC(request, ...):
+          ...
+    message: >
+      @csrf_exempt disables CSRF protection on this view.
+      CVE-2022-0439: missing CSRF on AJAX action allowed tricking logged-in
+      users into triggering SQLi. Only exempt for public APIs with token auth.
+    metadata:
+      cwe: ["CWE-352"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: WARNING
+    languages: [python]
+
+  # -- CWE-287 | Authentication Bypass ---------------------------------------
+
+  - id: robusta-js-auth-cookie-trust
+    patterns:
+      - pattern-either:
+          - pattern: |
+              if (req.cookies.$NAME === "...") { ... }
+          - pattern: |
+              if (req.cookies.$NAME == "...") { ... }
+          - pattern: |
+              if (req.cookies["..."] === "...") { ... }
+    message: >
+      Authentication based on a client-controlled cookie value.
+      CVE-2018-9995: "Cookie: uid=admin" bypasses all auth on DVR devices (CVSS 9.8).
+      Use signed/encrypted session tokens validated server-side.
+    metadata:
+      cwe: ["CWE-287"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2018-9995
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  # -- CWE-284 | Broken Access Control (WordPress) --------------------------
+
+  - id: robusta-php-wp-nopriv-ajax-no-nonce
+    pattern: |
+      add_action('wp_ajax_nopriv_$ACTION', $CALLBACK);
+    message: >
+      WordPress nopriv AJAX action registered — verify the callback includes
+      wp_verify_nonce() and current_user_can() checks.
+      CVE-2021-36888: unauthenticated arbitrary options update → full site takeover (CVSS 9.8).
+    metadata:
+      cwe: ["CWE-284", "CWE-306"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2021-36888
+    severity: WARNING
+    languages: [php]

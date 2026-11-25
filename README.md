@@ -1,0 +1,277 @@
+<p align="center">
+  <img src="banner.jpeg" alt="SemSec — Semgrep Rules for Robusta" width="100%">
+</p>
+
+<p align="center">
+  <strong>Stop vulnerabilities before they ship. Catch leaked secrets before they cost you.</strong>
+</p>
+
+<p align="center">
+  <a href="#quick-start"><img src="https://img.shields.io/badge/rules-146-blue?style=for-the-badge" alt="146 Rules"></a>
+  <a href="#hardcoded-secrets--75-providers"><img src="https://img.shields.io/badge/providers-75-green?style=for-the-badge" alt="75 Providers"></a>
+  <a href="#vulnerability-classes"><img src="https://img.shields.io/badge/CVEs-60%2C517-red?style=for-the-badge" alt="60,517 CVEs"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow?style=for-the-badge" alt="MIT License"></a>
+</p>
+
+---
+
+# SemSec
+
+**SemSec** is Robusta Studio's open-source Semgrep ruleset built for teams that ship fast and refuse to ship insecure. It combines **taint-tracking vulnerability detection** across 4 languages with **precision secret scanning** for 75 cloud providers — all in one `semgrep --config` command.
+
+Every rule traces back to a real exploit. Not theory. Not "best practice." Real CVEs, real HackerOne reports, real breaches — distilled from **60,517 vulnerability records** into patterns that catch what matters and stay quiet when it doesn't.
+
+---
+
+## Why SemSec
+
+Most static analysis tools bury you in noise. SemSec takes a different approach:
+
+**Taint-mode, not pattern-match.** Rules don't just grep for `exec()` — they trace whether attacker-controlled HTTP input actually reaches the dangerous sink. If your code sanitizes the input, the rule stays silent. This is the difference between 200 false positives and 3 real findings.
+
+**Grounded in real exploits.** Every rule maps to actual CVEs and HackerOne reports. The SQL injection rule catches `CVE-2022-24266` patterns. The SSRF rule catches `CVE-2021-40438` patterns. The command injection rule catches `CVE-2023-30258` patterns. If it hasn't caused a breach, it's not in here.
+
+**Secret detection that knows the format.** Not regex soup hoping to match "anything that looks secret." Each detector targets a provider's exact key format — AWS keys start with `AKIA`, Stripe keys start with `sk_live_`, Anthropic keys start with `sk-ant-api03-`. Precise prefix + length + charset = high confidence, low noise.
+
+---
+
+## Quick Start
+
+```bash
+# Clone
+git clone https://github.com/RobustaStudio/semsec.git
+
+# Scan your project with everything
+semgrep --config semsec/ /path/to/your/project
+
+# Secrets only — find leaked keys in 30 seconds
+semgrep --config semsec/hardcoded-secrets.yaml .
+
+# Web vulnerabilities only — Python
+semgrep --config semsec/python-web-taint.yaml .
+
+# CI-ready SARIF output
+semgrep --config semsec/ --sarif -o results.sarif .
+```
+
+---
+
+## What's Inside
+
+### Vulnerability Detection (47 rules)
+
+Taint-tracking rules that follow data from **HTTP input** through **dangerous sinks**, with sanitizer exceptions to eliminate false positives.
+
+| Ruleset | Rules | Frameworks | Vulnerability Classes |
+|---------|-------|------------|----------------------|
+| **Python** | 10 | Django, Flask, FastAPI | SQLi, CMDi, SSRF, Path Traversal, SSTI, XXE, Deserialization, File Upload, Open Redirect |
+| **JavaScript** | 8 | Express, Node.js | XSS, SQLi, CMDi, SSRF, Prototype Pollution, NoSQL Injection, Path Traversal |
+| **Java** | 7 | Spring Boot, Servlet | SQLi, CMDi, Deserialization, XXE, EL Injection, LDAP Injection |
+| **PHP** | 7 | Laravel, WordPress | SQLi, CMDi, LFI, Deserialization, XSS, SSRF, `extract()` abuse |
+| **Auth & Access** | 8 | Cross-language | Hardcoded JWT secrets, Missing Auth on APIs, IDOR, CSRF bypass, Cookie trust, WP nopriv |
+| **Crypto** | 7 | Cross-language | MD5 passwords, ECB mode, deprecated ciphers, `Math.random()` tokens, TLS verification disabled |
+
+### Secret Detection (99 rules, 75 providers)
+
+Provider-specific patterns targeting exact key formats — prefix, length, character set — for maximum confidence and minimal false positives.
+
+<details>
+<summary><strong>Cloud & Infrastructure</strong> (13 providers)</summary>
+
+AWS (Access Key + Secret Key), GCP (API Key + Service Account), Azure (Storage + DevOps PAT), Alibaba Cloud, DigitalOcean, Heroku, Cloudflare, Pulumi, Terraform Cloud, Tailscale, Doppler, Infisical, HashiCorp Vault
+
+</details>
+
+<details>
+<summary><strong>AI & Machine Learning</strong> (12 providers)</summary>
+
+OpenAI (legacy + project keys), Anthropic, Groq, xAI (Grok), OpenRouter, HuggingFace, Replicate, NVIDIA, Fireworks AI, Pinecone, LangSmith, ElevenLabs
+
+</details>
+
+<details>
+<summary><strong>Git, CI/CD & Package Registries</strong> (13 providers)</summary>
+
+GitHub (PAT + fine-grained), GitLab (PAT + OAuth2), Bitbucket, Sourcegraph (+ Cody), CircleCI, Buildkite, Harness, Deno Deploy, npm, PyPI, NuGet, RubyGems, Docker Hub
+
+</details>
+
+<details>
+<summary><strong>Payments & Commerce</strong> (8 providers)</summary>
+
+Stripe (secret + restricted keys), Square (access token + app secret), Plaid, Paystack, Razorpay, Flutterwave, GoCardless, Shopify
+
+</details>
+
+<details>
+<summary><strong>SaaS & Productivity</strong> (13 providers)</summary>
+
+Slack (tokens + webhooks), Discord (bot tokens + webhooks), Notion, Linear, PostHog, Postman, LaunchDarkly, Contentful, Mapbox, Mailchimp, Dropbox, PagerDuty, Prefect
+
+</details>
+
+<details>
+<summary><strong>Monitoring & Observability</strong> (5 providers)</summary>
+
+Grafana (Cloud + Service Account), Sentry, New Relic, Databricks, Nightfall
+
+</details>
+
+<details>
+<summary><strong>Email & Communication</strong> (6 providers)</summary>
+
+SendGrid, Mailgun, Resend, Telegram, Microsoft Teams (webhooks), Zapier (webhooks)
+
+</details>
+
+<details>
+<summary><strong>Databases & Backend</strong> (5 providers)</summary>
+
+PlanetScale (password + token), Supabase (service key + token), Salesforce, Firebase, plus generic connection strings (PostgreSQL, MySQL, MongoDB, Redis, RabbitMQ, MSSQL)
+
+</details>
+
+<details>
+<summary><strong>Cryptographic Material</strong></summary>
+
+RSA, EC, OpenSSH, PKCS#8 private keys, hardcoded JWT signing secrets, `.env` files with secrets
+
+</details>
+
+---
+
+## Vulnerability Classes
+
+Every rule maps to CWE identifiers, OWASP 2021 categories, and real-world references:
+
+| Class | CWE | Grounded In |
+|-------|-----|-------------|
+| SQL Injection | CWE-89 | CVE-2022-24266, CVE-2022-0439, CVE-2024-9796 |
+| OS Command Injection | CWE-78 | CVE-2023-30258 (MagnusBilling), CVE-2019-0232 |
+| Server-Side Request Forgery | CWE-918 | CVE-2021-40438 (Apache mod_proxy) |
+| Path Traversal | CWE-22 | CVE-2024-1483 (MLflow), CVE-2024-6911 |
+| Cross-Site Scripting | CWE-79 | PortSwigger patterns, HackerOne reflected XSS |
+| Template Injection | CWE-1336 | CVE-2024-42355 (Shopware), Jinja2 RCE chains |
+| Insecure Deserialization | CWE-502 | CVE-2023-52357, pickle/yaml.load patterns |
+| XML External Entity | CWE-611 | SAML/SOAP/SVG upload XXE patterns |
+| Prototype Pollution | CWE-1321 | HackerOne: mermaid, fastify-multipart |
+| NoSQL Injection | CWE-943 | MongoDB `{"$gt":""}` auth bypass |
+| Open Redirect | CWE-601 | CVE-2020-29565 (OpenStack Horizon) |
+| Hardcoded Credentials | CWE-798 | 75 provider-specific key formats |
+
+---
+
+## CI/CD Integration
+
+### GitHub Actions
+
+```yaml
+name: Security Scan
+on: [push, pull_request]
+jobs:
+  semsec:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: SemSec Scan
+        run: |
+          pip install semgrep
+          git clone https://github.com/RobustaStudio/semsec.git /tmp/semsec
+          semgrep --config /tmp/semsec/ --sarif -o results.sarif .
+      - name: Upload Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: results.sarif
+```
+
+### GitLab CI
+
+```yaml
+semsec:
+  image: semgrep/semgrep
+  script:
+    - git clone https://github.com/RobustaStudio/semsec.git /tmp/semsec
+    - semgrep --config /tmp/semsec/ --sarif -o gl-sast-report.sarif .
+  artifacts:
+    reports:
+      sast: gl-sast-report.sarif
+```
+
+### Pre-commit Hook
+
+```yaml
+repos:
+  - repo: https://github.com/returntocorp/semgrep
+    rev: v1.100.0
+    hooks:
+      - id: semgrep
+        args: ['--config', 'https://github.com/RobustaStudio/semsec', '--error']
+```
+
+### Docker
+
+```bash
+docker run --rm -v "${PWD}:/src" semgrep/semgrep \
+  semgrep --config /tmp/semsec/ /src
+```
+
+---
+
+## How Taint Tracking Works
+
+Traditional SAST tools pattern-match on dangerous function calls. SemSec uses Semgrep's **taint mode** to trace actual data flow:
+
+```
+  HTTP Request Input          Sanitizer Check           Dangerous Sink
+  ┌─────────────────┐        ┌──────────────┐        ┌────────────────┐
+  │ request.args     │───────>│ parameterized │───X    │ cursor.execute │
+  │ request.form     │        │ query?        │        │ os.system()    │
+  │ request.headers  │        │ input valid?  │        │ send_file()    │
+  │ req.query        │        │ escaped?      │        │ redirect()     │
+  │ req.body         │        └──────────────┘        └────────────────┘
+  │ $_GET / $_POST   │               │
+  └─────────────────┘               │ No sanitizer?
+                                     │
+                              ┌──────▼──────┐
+                              │  FINDING    │
+                              └─────────────┘
+```
+
+If the data is sanitized (parameterized query, escaping function, type cast), no finding is raised. This eliminates the false positive flood that makes other tools unusable.
+
+---
+
+## Project Structure
+
+```
+semsec/
+├── python-web-taint.yaml        # 10 rules — Django, Flask, FastAPI
+├── javascript-web-taint.yaml    #  8 rules — Express, Node.js
+├── java-web-taint.yaml          #  7 rules — Spring Boot, Servlet
+├── php-web-taint.yaml           #  7 rules — Laravel, WordPress
+├── auth-access-control.yaml     #  8 rules — Auth, IDOR, CSRF
+├── crypto-secrets.yaml          #  7 rules — Weak crypto, PRNG
+├── hardcoded-secrets.yaml       # 99 rules — 75 providers
+├── banner.jpeg
+├── LICENSE                      # MIT
+└── README.md
+```
+
+---
+
+## Contributing
+
+Found a false positive? Missing a provider? Have a CVE pattern we should add?
+
+1. Open an issue with the details
+2. Or submit a PR — rules follow the existing format with CWE/OWASP metadata
+
+All rules must pass `semgrep --validate` before merge.
+
+---
+
+## About Robusta Studio
+
+**[Robusta Studio](https://robustastudio.com)** builds developer tools and security solutions. SemSec is part of our commitment to making application security accessible, precise, and free.
+

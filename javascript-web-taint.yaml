@@ -1,0 +1,346 @@
+# ============================================================================
+# Robusta Studio - JavaScript/TypeScript Web Application Security Rules
+# Copyright (c) 2026 Robusta Studio. All rights reserved.
+#
+# Taint-tracking rules for Node.js/Express, React, and browser-side JS.
+# Derived from 60,517 real-world CVE and HackerOne vulnerability records.
+# Dataset: PentesterFlow/OffsecCyber
+#
+# Usage: semgrep --config javascript-web-taint.yaml /path/to/project
+# ============================================================================
+
+rules:
+
+  # -- CWE-79 | Cross-Site Scripting (XSS) -----------------------------------
+
+  - id: robusta-js-xss-taint-express
+    mode: taint
+    message: >
+      HTTP request parameter flows into an HTML response without encoding.
+      H1 pattern: search param reflected in page body → XSS.
+      PortSwigger: reflected into JS template literal → ${alert(1)}.
+      Use framework auto-escaping, or DOMPurify.sanitize() for rich HTML.
+    metadata:
+      cwe: ["CWE-79"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: req.headers[...]
+              - pattern: req.query[...]
+              - pattern: req.params[...]
+              - pattern: req.body[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: res.send($DATA)
+              - pattern: res.write($DATA)
+              - pattern: $EL.innerHTML = $DATA
+              - pattern: $EL.outerHTML = $DATA
+              - pattern: document.write($DATA)
+              - pattern: document.writeln($DATA)
+          - focus-metavariable: $DATA
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: DOMPurify.sanitize(...)
+              - pattern: escapeHtml(...)
+              - pattern: escape(...)
+              - pattern: encodeURIComponent(...)
+              - pattern: $VALIDATOR.escape(...)
+              - pattern: xss(...)
+
+  # -- CWE-89 | SQL Injection ------------------------------------------------
+
+  - id: robusta-js-sqli-taint
+    mode: taint
+    message: >
+      HTTP input flows into a SQL query string. Use parameterized queries:
+      db.query("SELECT ... WHERE x = ?", [input]).
+      CVE-2024-9796: 't' param unsanitized in SQL → unauthenticated SQLi.
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      references:
+        - https://nvd.nist.gov/vuln/detail/CVE-2024-9796
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: req.query[...]
+              - pattern: req.params[...]
+              - pattern: req.body[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.query($Q, ...)
+              - pattern: $DB.raw($Q)
+              - pattern: $CONN.query($Q, ...)
+              - pattern: $POOL.query($Q, ...)
+              - pattern: $KNEX.raw($Q, ...)
+              - pattern: sequelize.query($Q, ...)
+              - pattern: $SEQ.literal($Q)
+          - focus-metavariable: $Q
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: parseInt(...)
+              - pattern: Number(...)
+              - pattern: $DB.escape(...)
+              - pattern: mysql.escape(...)
+              - pattern: $CONN.escapeId(...)
+
+  # -- CWE-78 | OS Command Injection -----------------------------------------
+
+  - id: robusta-js-cmdi-taint
+    mode: taint
+    message: >
+      HTTP request data reaches child_process.exec() (runs through shell).
+      Use child_process.execFile() or spawn() with an argument array.
+    metadata:
+      cwe: ["CWE-78"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: req.query[...]
+              - pattern: req.params[...]
+              - pattern: req.body[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: child_process.exec($CMD, ...)
+              - pattern: exec($CMD, ...)
+              - pattern: execSync($CMD, ...)
+              - pattern: child_process.execSync($CMD, ...)
+          - focus-metavariable: $CMD
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: parseInt(...)
+              - pattern: Number(...)
+              - pattern: $RE.test(...)
+
+  # -- CWE-918 | Server-Side Request Forgery ----------------------------------
+
+  - id: robusta-js-ssrf-taint
+    mode: taint
+    message: >
+      User-supplied URL passed to a server-side HTTP client. Validate scheme,
+      resolve and reject private/link-local/metadata IPs before requesting.
+    metadata:
+      cwe: ["CWE-918"]
+      owasp: ["A10:2021 Server-Side Request Forgery"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: req.body[...]
+              - pattern: req.query[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: fetch($URL, ...)
+              - pattern: axios.get($URL, ...)
+              - pattern: axios.post($URL, ...)
+              - pattern: axios.put($URL, ...)
+              - pattern: "axios.request({url: $URL, ...})"
+              - pattern: axios($URL, ...)
+              - pattern: got($URL, ...)
+              - pattern: got.get($URL, ...)
+              - pattern: needle.get($URL, ...)
+              - pattern: superagent.get($URL)
+              - pattern: http.get($URL, ...)
+              - pattern: https.get($URL, ...)
+              - pattern: undici.request($URL, ...)
+          - focus-metavariable: $URL
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: new URL(...)
+              - pattern: url.parse(...)
+
+  # -- CWE-1321 | Prototype Pollution ----------------------------------------
+
+  - id: robusta-js-prototype-pollution-deep-merge
+    patterns:
+      - pattern-either:
+          - pattern: |
+              function $MERGE($TARGET, $SOURCE) {
+                ...
+                for (let $KEY in $SOURCE) {
+                  ...
+                  $TARGET[$KEY] = ...
+                  ...
+                }
+                ...
+              }
+          - pattern: |
+              function $MERGE($TARGET, $SOURCE) {
+                ...
+                Object.keys($SOURCE).forEach($KEY => {
+                  ...
+                  $TARGET[$KEY] = ...
+                  ...
+                })
+                ...
+              }
+    message: >
+      Custom deep-merge without __proto__/constructor key rejection enables
+      prototype pollution. H1: mermaid directives → stored XSS, fastify-multipart → DoS.
+      Reject keys "__proto__", "constructor", "prototype" or use Map/Object.create(null).
+    metadata:
+      cwe: ["CWE-1321"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [javascript, typescript]
+
+  - id: robusta-js-prototype-pollution-lodash-set
+    patterns:
+      - pattern-either:
+          - pattern: _.set($OBJ, $PATH, $VAL)
+          - pattern: _.setWith($OBJ, $PATH, $VAL, ...)
+          - pattern: _.merge($OBJ, $SOURCE)
+          - pattern: _.defaultsDeep($OBJ, $SOURCE)
+      - pattern-not: |
+          _.set($OBJ, "...", $VAL)
+    message: >
+      Lodash deep set/merge with user-controlled path enables prototype pollution.
+      Validate that the path does not contain "__proto__", "constructor", or "prototype".
+    metadata:
+      cwe: ["CWE-1321"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: WARNING
+    languages: [javascript, typescript]
+
+  # -- CWE-943 | NoSQL Injection ---------------------------------------------
+
+  - id: robusta-js-nosqli-taint
+    mode: taint
+    message: >
+      User input object passed directly to MongoDB query operator position.
+      Attack: {"password": {"$gt": ""}} bypasses auth. Validate input types
+      with mongo-sanitize or explicit type casting before query.
+    metadata:
+      cwe: ["CWE-943"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.body
+              - pattern: req.body.$FIELD
+              - pattern: req.query
+              - pattern: req.query.$FIELD
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $COLL.findOne($QUERY, ...)
+              - pattern: $COLL.find($QUERY, ...)
+              - pattern: $COLL.findOneAndUpdate($QUERY, ...)
+              - pattern: $COLL.findOneAndDelete($QUERY, ...)
+              - pattern: $COLL.updateOne($QUERY, ...)
+              - pattern: $COLL.updateMany($QUERY, ...)
+              - pattern: $COLL.deleteOne($QUERY, ...)
+              - pattern: $COLL.deleteMany($QUERY, ...)
+              - pattern: $MODEL.findOne($QUERY, ...)
+              - pattern: $MODEL.find($QUERY, ...)
+          - focus-metavariable: $QUERY
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: mongoSanitize(...)
+              - pattern: String(...)
+              - pattern: toString(...)
+              - pattern: parseInt(...)
+
+  # -- CWE-22 | Path Traversal -----------------------------------------------
+
+  - id: robusta-js-pathtraver-taint
+    mode: taint
+    message: >
+      User input flows into filesystem path. H1: lichess.org /assets/../build.sbt
+      leaked source code. Resolve with path.resolve() and verify the result starts
+      with the expected base directory.
+    metadata:
+      cwe: ["CWE-22"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+    severity: ERROR
+    languages: [javascript, typescript]
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: req.query.$PARAM
+              - pattern: req.params.$PARAM
+              - pattern: req.body.$PARAM
+              - pattern: req.query[...]
+              - pattern: req.params[...]
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: fs.readFile($PATH, ...)
+              - pattern: fs.readFileSync($PATH, ...)
+              - pattern: fs.createReadStream($PATH, ...)
+              - pattern: fs.writeFile($PATH, ...)
+              - pattern: fs.writeFileSync($PATH, ...)
+              - pattern: fs.unlink($PATH, ...)
+              - pattern: fs.unlinkSync($PATH)
+              - pattern: fs.stat($PATH, ...)
+              - pattern: fs.statSync($PATH)
+              - pattern: fs.access($PATH, ...)
+              - pattern: res.sendFile($PATH, ...)
+              - pattern: res.download($PATH, ...)
+          - focus-metavariable: $PATH
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: path.basename(...)
+              - pattern: path.normalize(...)
+              - pattern: path.resolve(...)
