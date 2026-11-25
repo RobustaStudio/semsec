@@ -271,14 +271,30 @@ repos:
     rev: v1.100.0
     hooks:
       - id: semgrep
-        args: ['--config', 'https://github.com/RobustaStudio/semsec', '--error']
+        args:
+          - --error
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/auth-access-control.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/crypto-secrets.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/hardcoded-secrets.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/java-web-taint.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/javascript-web-taint.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/orm-security.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/php-web-taint.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/python-web-taint.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/react-vue-client-security.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/serverless-edge-security.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/trpc-graphql-security.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/vibe-coding-security.yaml
+          - --config=https://raw.githubusercontent.com/RobustaStudio/semsec/main/webhook-security.yaml
 ```
+
+Semgrep can't load a whole GitHub repo from its URL (it loads 0 rules and passes), so point at each rule file. Replace `main` with a commit SHA to pin the rules.
 
 ### Docker
 
 ```bash
-docker run --rm -v "${PWD}:/src" semgrep/semgrep \
-  semgrep --config /tmp/semsec/ /src
+docker run --rm -v "${PWD}:/src" -v "/path/to/semsec:/semsec:ro" semgrep/semgrep \
+  semgrep --config /semsec/ /src
 ```
 
 ---
