@@ -33,7 +33,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: supabase
     severity: ERROR
     languages: [typescript, javascript]
@@ -65,7 +65,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: supabase
     severity: ERROR
     languages: [typescript, javascript]
@@ -89,7 +89,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: supabase
     severity: WARNING
     languages: [typescript, javascript]
@@ -110,7 +110,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: supabase
     severity: WARNING
     languages: [typescript, javascript]
@@ -129,7 +129,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: supabase
     severity: ERROR
     languages: [generic]
@@ -154,7 +154,7 @@ rules:
       confidence: MEDIUM
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: supabase
     severity: WARNING
     languages: [generic]
@@ -173,7 +173,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: supabase
     severity: ERROR
     languages: [generic]
@@ -232,7 +232,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: nextjs
     severity: WARNING
     languages: [typescript, javascript]
@@ -268,7 +268,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: nextjs
     severity: WARNING
     languages: [typescript, javascript]
@@ -291,7 +291,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: nextjs
     severity: ERROR
     languages: [generic]
@@ -313,7 +313,7 @@ rules:
       confidence: LOW
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: nextjs
     severity: INFO
     languages: [generic]
@@ -340,7 +340,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: firebase
     severity: ERROR
     languages: [generic]
@@ -364,7 +364,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: firebase
     severity: ERROR
     languages: [generic]
@@ -393,7 +393,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: firebase
     severity: ERROR
     languages: [typescript, javascript]
@@ -431,7 +431,7 @@ rules:
       confidence: MEDIUM
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: stripe
     severity: ERROR
     languages: [typescript, javascript]
@@ -454,7 +454,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: stripe
     severity: ERROR
     languages: [typescript, javascript]
@@ -490,7 +490,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: auth
     severity: WARNING
     languages: [typescript, javascript]
@@ -517,7 +517,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: auth
     severity: WARNING
     languages: [typescript, javascript]
@@ -538,7 +538,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: auth
     severity: ERROR
     languages: [typescript, javascript]
@@ -564,7 +564,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: supabase
     severity: ERROR
     languages: [typescript, javascript]
@@ -596,7 +596,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: security-headers
     severity: ERROR
     languages: [typescript, javascript]
@@ -615,7 +615,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: security-headers
     severity: ERROR
     languages: [typescript, javascript]
@@ -642,7 +642,7 @@ rules:
       confidence: MEDIUM
       impact: MEDIUM
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: supabase
     severity: WARNING
     languages: [typescript, javascript]
@@ -669,7 +669,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: data-exposure
     severity: WARNING
     languages: [typescript, javascript]
@@ -712,7 +712,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: input-validation
     severity: WARNING
     languages: [typescript, javascript]
@@ -743,7 +743,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: input-validation
     severity: ERROR
     languages: [typescript, javascript]
@@ -782,7 +782,7 @@ rules:
       confidence: MEDIUM
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: idor
     severity: ERROR
     languages: [typescript, javascript]
@@ -810,7 +810,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: deployment
     severity: ERROR
     languages: [generic]
@@ -839,7 +839,7 @@ rules:
       confidence: HIGH
       impact: MEDIUM
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: deployment
     severity: WARNING
     languages: [generic]
@@ -898,7 +898,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: rate-limiting
     severity: WARNING
     languages: [typescript, javascript]
@@ -937,7 +937,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: file-upload
     severity: WARNING
     languages: [typescript, javascript]
@@ -962,7 +962,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: database
     severity: ERROR
     languages: [typescript, javascript]
@@ -984,7 +984,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: database
     severity: ERROR
     languages: [typescript, javascript]
@@ -1012,7 +1012,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: ai-security
     severity: WARNING
     languages: [typescript, javascript]
@@ -1033,7 +1033,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: ai-security
     severity: ERROR
     languages: [typescript, javascript]

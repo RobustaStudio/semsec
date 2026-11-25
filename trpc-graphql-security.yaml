@@ -35,7 +35,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: trpc
     severity: ERROR
     languages: [typescript, javascript]
@@ -80,7 +80,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: trpc
     severity: ERROR
     languages: [typescript, javascript]
@@ -109,7 +109,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: trpc
     severity: WARNING
     languages: [typescript, javascript]
@@ -142,7 +142,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: trpc
     severity: WARNING
     languages: [typescript, javascript]
@@ -168,7 +168,7 @@ rules:
       confidence: MEDIUM
       impact: MEDIUM
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: trpc
     severity: WARNING
     languages: [typescript, javascript]
@@ -196,7 +196,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: graphql
     severity: ERROR
     languages: [typescript, javascript]
@@ -232,7 +232,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: graphql
     severity: WARNING
     languages: [typescript, javascript]
@@ -273,7 +273,7 @@ rules:
       confidence: MEDIUM
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: graphql
     severity: ERROR
     languages: [typescript, javascript]
@@ -301,7 +301,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: graphql
     severity: ERROR
     languages: [generic]
@@ -322,7 +322,7 @@ rules:
       confidence: HIGH
       impact: MEDIUM
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: graphql
     severity: WARNING
     languages: [typescript, javascript]
@@ -359,7 +359,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: graphql
     severity: WARNING
     languages: [typescript, javascript]
@@ -394,7 +394,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: graphql
     severity: ERROR
     languages: [typescript, javascript]
@@ -418,7 +418,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: graphql
     severity: ERROR
     languages: [typescript, javascript]

@@ -36,7 +36,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: serverless
     severity: ERROR
     languages: [typescript, javascript]
@@ -69,7 +69,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: aws-lambda
     severity: ERROR
     languages: [generic]
@@ -91,7 +91,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: aws-lambda
     severity: ERROR
     languages: [generic]
@@ -118,7 +118,7 @@ rules:
       confidence: HIGH
       impact: MEDIUM
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: aws-lambda
     severity: WARNING
     languages: [typescript, javascript]
@@ -144,7 +144,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: serverless-config
     severity: ERROR
     languages: [generic]
@@ -166,7 +166,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: serverless-config
     severity: ERROR
     languages: [generic]
@@ -201,7 +201,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: deno
     severity: WARNING
     languages: [typescript, javascript]
@@ -223,7 +223,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: deno
     severity: WARNING
     languages: [typescript, javascript]
@@ -253,7 +253,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: serverless
     severity: ERROR
     languages: [typescript, javascript]
@@ -277,7 +277,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: serverless-config
     severity: WARNING
     languages: [generic]
@@ -301,7 +301,7 @@ rules:
       confidence: HIGH
       impact: MEDIUM
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: serverless
     severity: WARNING
     languages: [typescript, javascript]
@@ -356,7 +356,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: serverless
     severity: WARNING
     languages: [typescript, javascript]
@@ -392,7 +392,7 @@ rules:
       confidence: MEDIUM
       impact: MEDIUM
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: serverless
     severity: INFO
     languages: [typescript, javascript]
@@ -428,7 +428,7 @@ rules:
       confidence: HIGH
       impact: MEDIUM
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: serverless
     severity: WARNING
     languages: [typescript, javascript]
@@ -452,7 +452,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: vercel
     severity: WARNING
     languages: [generic]

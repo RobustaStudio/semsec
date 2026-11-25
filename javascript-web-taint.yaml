@@ -26,7 +26,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
     severity: ERROR
     languages: [javascript, typescript]
     pattern-sources:
@@ -73,7 +73,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       references:
         - https://nvd.nist.gov/vuln/detail/CVE-2024-9796
     severity: ERROR
@@ -119,7 +119,7 @@ rules:
       confidence: HIGH
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
     severity: ERROR
     languages: [javascript, typescript]
     pattern-sources:
@@ -159,7 +159,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
     severity: ERROR
     languages: [javascript, typescript]
     pattern-sources:
@@ -227,7 +227,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
     severity: ERROR
     languages: [javascript, typescript]
 
@@ -248,7 +248,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
     severity: WARNING
     languages: [javascript, typescript]
 
@@ -265,7 +265,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
     severity: ERROR
     languages: [javascript, typescript]
     pattern-sources:
@@ -311,7 +311,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
     severity: ERROR
     languages: [javascript, typescript]
     pattern-sources:

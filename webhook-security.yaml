@@ -50,7 +50,7 @@ rules:
       confidence: MEDIUM
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: Clerk
     severity: ERROR
     languages: [typescript, javascript]
@@ -94,7 +94,7 @@ rules:
       confidence: MEDIUM
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: GitHub
     severity: ERROR
     languages: [typescript, javascript]
@@ -137,7 +137,7 @@ rules:
       confidence: MEDIUM
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: Paddle
     severity: ERROR
     languages: [typescript, javascript]
@@ -181,7 +181,7 @@ rules:
       confidence: MEDIUM
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: LemonSqueezy
     severity: ERROR
     languages: [typescript, javascript]
@@ -224,7 +224,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: Resend
     severity: ERROR
     languages: [typescript, javascript]
@@ -269,7 +269,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: Twilio
     severity: ERROR
     languages: [typescript, javascript]
@@ -312,7 +312,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: SendGrid
     severity: ERROR
     languages: [typescript, javascript]
@@ -360,7 +360,7 @@ rules:
       confidence: MEDIUM
       impact: CRITICAL
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: Shopify
     severity: ERROR
     languages: [typescript, javascript]
@@ -393,7 +393,7 @@ rules:
       confidence: LOW
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: Svix
     severity: INFO
     languages: [typescript, javascript]
@@ -442,7 +442,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: Discord
     severity: ERROR
     languages: [typescript, javascript]
@@ -490,7 +490,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       provider: Slack
     severity: ERROR
     languages: [typescript, javascript]
@@ -549,7 +549,7 @@ rules:
       confidence: LOW
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: webhook
     severity: WARNING
     languages: [typescript, javascript]
@@ -591,7 +591,7 @@ rules:
       confidence: MEDIUM
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: webhook
     severity: ERROR
     languages: [typescript, javascript]
@@ -637,7 +637,7 @@ rules:
       confidence: MEDIUM
       impact: MEDIUM
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: webhook
     severity: WARNING
     languages: [typescript, javascript]
@@ -682,7 +682,7 @@ rules:
       confidence: LOW
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: webhook
     severity: WARNING
     languages: [typescript, javascript]
@@ -705,7 +705,7 @@ rules:
       confidence: HIGH
       impact: HIGH
       author: Robusta Studio
-      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      license: "MIT - Copyright (c) 2026 Robusta Studio. For the open-source community."
       category: webhook
     severity: ERROR
     languages: [generic]
