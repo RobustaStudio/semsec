@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start"><img src="https://img.shields.io/badge/rules-146-blue?style=for-the-badge" alt="146 Rules"></a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/rules-181-blue?style=for-the-badge" alt="181 Rules"></a>
   <a href="#hardcoded-secrets--75-providers"><img src="https://img.shields.io/badge/providers-75-green?style=for-the-badge" alt="75 Providers"></a>
   <a href="#vulnerability-classes"><img src="https://img.shields.io/badge/CVEs-60%2C517-red?style=for-the-badge" alt="60,517 CVEs"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-yellow?style=for-the-badge" alt="MIT License"></a>
@@ -17,7 +17,7 @@
 
 # SemSec
 
-**SemSec** is Robusta Studio's open-source Semgrep ruleset built for teams that ship fast and refuse to ship insecure. It combines **taint-tracking vulnerability detection** across 4 languages with **precision secret scanning** for 75 cloud providers — all in one `semgrep --config` command.
+**SemSec** is Robusta Studio's open-source Semgrep ruleset built for teams that ship fast and refuse to ship insecure. It combines **taint-tracking vulnerability detection** across 4 languages, **vibe-coding security checks** for Supabase/Next.js/Firebase, and **precision secret scanning** for 75 cloud providers — all in one `semgrep --config` command.
 
 Every rule traces back to a real exploit. Not theory. Not "best practice." Real CVEs, real HackerOne reports, real breaches — distilled from **60,517 vulnerability records** into patterns that catch what matters and stay quiet when it doesn't.
 
@@ -43,6 +43,9 @@ git clone https://github.com/RobustaStudio/semsec.git
 
 # Scan your project with everything
 semgrep --config semsec/ /path/to/your/project
+
+# Vibe coding audit — Supabase RLS, Next.js auth, Firebase rules
+semgrep --config semsec/vibe-coding-security.yaml .
 
 # Secrets only — find leaked keys in 30 seconds
 semgrep --config semsec/hardcoded-secrets.yaml .
@@ -70,6 +73,28 @@ Taint-tracking rules that follow data from **HTTP input** through **dangerous si
 | **PHP** | 7 | Laravel, WordPress | SQLi, CMDi, LFI, Deserialization, XSS, SSRF, `extract()` abuse |
 | **Auth & Access** | 8 | Cross-language | Hardcoded JWT secrets, Missing Auth on APIs, IDOR, CSRF bypass, Cookie trust, WP nopriv |
 | **Crypto** | 7 | Cross-language | MD5 passwords, ECB mode, deprecated ciphers, `Math.random()` tokens, TLS verification disabled |
+
+### Vibe Coding Security (35 rules)
+
+Purpose-built rules for the most common mistakes in AI-assisted / vibe-coded web apps:
+
+| Category | Rules | What It Catches |
+|----------|-------|-----------------|
+| **Supabase** | 7 | RLS disabled/bypassed, service key on client, permissive policies, `USING (true)`, `getSession()` instead of `getUser()`, `select("*")` over-fetching |
+| **Next.js** | 4 | API routes without auth, Server Actions without auth, `NEXT_PUBLIC_` secret exposure, middleware matcher gaps |
+| **Firebase** | 3 | `allow read/write: if true`, Admin SDK in client-side code |
+| **Stripe** | 2 | Webhook signature not verified, payment amount from client input |
+| **Auth** | 3 | Client-side role checks, hardcoded admin emails, JWT decode without verify |
+| **CORS** | 2 | Wildcard origin, wildcard + credentials |
+| **Data Exposure** | 2 | Prisma user returned without field filtering, Supabase `select("*")` |
+| **Input Validation** | 2 | Server Actions / API routes without Zod validation, mass assignment |
+| **IDOR** | 1 | Delete/update by URL param without ownership check |
+| **Database** | 2 | Drizzle `sql.raw()` injection, Prisma `$queryRawUnsafe` injection |
+| **AI Security** | 2 | Prompt injection via user input in system prompt, OpenAI key on client |
+| **Deployment** | 2 | Secrets in `.env` files, debug mode in production |
+| **Rate Limiting** | 1 | Auth endpoints without rate limiting |
+| **File Upload** | 1 | Upload without file type validation |
+| **Storage** | 1 | Public Supabase bucket uploads |
 
 ### Secret Detection (99 rules, 75 providers)
 
@@ -253,6 +278,7 @@ semsec/
 ├── auth-access-control.yaml     #  8 rules — Auth, IDOR, CSRF
 ├── crypto-secrets.yaml          #  7 rules — Weak crypto, PRNG
 ├── hardcoded-secrets.yaml       # 99 rules — 75 providers
+├── vibe-coding-security.yaml    # 35 rules — Supabase, Next.js, Firebase, Stripe
 ├── banner.jpeg
 ├── LICENSE                      # MIT
 └── README.md

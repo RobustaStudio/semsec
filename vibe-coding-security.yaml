@@ -1,0 +1,1039 @@
+# ============================================================================
+# Robusta Studio - Vibe Coding Security Rules
+# Copyright (c) 2026 Robusta Studio. All rights reserved.
+#
+# Precision rules for catching the most common security mistakes in
+# AI-assisted / vibe-coded web applications: Supabase, Next.js, Firebase,
+# Vercel, Clerk, Stripe, and modern full-stack patterns.
+#
+# Usage: semgrep --config vibe-coding-security.yaml /path/to/project
+# ============================================================================
+
+rules:
+
+  # ==========================================================================
+  #                    SUPABASE — RLS & CLIENT MISUSE
+  # ==========================================================================
+
+  # -- CWE-862 | Missing RLS Policy -----------------------------------------
+
+  - id: robusta-vibe-supabase-rls-disabled
+    patterns:
+      - pattern-regex: \.rpc\(|\.from\(
+      - pattern-inside: |
+          createClient($SUPABASE_URL, $SUPABASE_SERVICE_KEY, ...)
+    message: >
+      Supabase client initialized with the service_role key is being used to
+      query data. The service key bypasses ALL Row Level Security policies.
+      Use the anon key with RLS enabled for client-facing queries. Reserve
+      the service key for server-side admin operations only.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: supabase
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-supabase-service-key-client
+    patterns:
+      - pattern-either:
+          - pattern: createClient($URL, process.env.SUPABASE_SERVICE_ROLE_KEY, ...)
+          - pattern: createClient($URL, process.env.SUPABASE_SERVICE_KEY, ...)
+    paths:
+      exclude:
+        - "**/server/**"
+        - "**/api/**"
+        - "**/lib/admin*"
+        - "**/utils/admin*"
+      include:
+        - "**/components/**"
+        - "**/app/**/page.*"
+        - "**/pages/**"
+        - "**/hooks/**"
+    message: >
+      Supabase service_role key used in client-side code. This key bypasses
+      Row Level Security and grants full database access. Never expose it to
+      the browser. Use the anon key (NEXT_PUBLIC_SUPABASE_ANON_KEY) for
+      client-side and createServerClient for server components.
+    metadata:
+      cwe: ["CWE-798", "CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: supabase
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-supabase-anon-delete
+    patterns:
+      - pattern: $CLIENT.from($TABLE).delete().match(...)
+      - pattern-not-inside: |
+          async function $F(...) {
+            ...
+            const { data: { user } } = await $CLIENT.auth.getUser(...)
+            ...
+          }
+    message: >
+      Supabase delete operation without verifying the authenticated user first.
+      Always call supabase.auth.getUser() before destructive operations, and
+      ensure RLS policies restrict deletes to row owners.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: supabase
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-supabase-storage-public-upload
+    patterns:
+      - pattern-either:
+          - pattern: $CLIENT.storage.from("public").upload(...)
+          - pattern: $CLIENT.storage.from('public').upload(...)
+    message: >
+      Uploading to a public Supabase storage bucket. Any file uploaded here is
+      accessible to everyone. Verify the bucket requires authentication, add
+      storage policies to restrict uploads by user, and validate file types
+      and sizes server-side.
+    metadata:
+      cwe: ["CWE-434"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: supabase
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-supabase-rls-bypass-sql
+    patterns:
+      - pattern-regex: (?i)alter\s+table\s+\w+\s+disable\s+row\s+level\s+security
+    message: >
+      SQL statement disabling Row Level Security on a table. This removes all
+      access control policies and exposes the table to any authenticated or
+      anonymous user via the Supabase API. Keep RLS enabled and write proper
+      policies instead.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: supabase
+    severity: ERROR
+    languages: [generic]
+
+  - id: robusta-vibe-supabase-rls-not-enabled
+    patterns:
+      - pattern-regex: (?i)create\s+table\s+(?:public\.)?(\w+)
+      - pattern-not-regex: (?i)alter\s+table\s+\w+\s+enable\s+row\s+level\s+security
+    paths:
+      include:
+        - "**/*migration*"
+        - "**/*seed*"
+        - "**/supabase/**"
+    message: >
+      Table created without enabling Row Level Security. In Supabase, tables
+      without RLS are fully accessible via the API. Add
+      'ALTER TABLE <name> ENABLE ROW LEVEL SECURITY;' and create appropriate
+      policies after every CREATE TABLE statement.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: supabase
+    severity: WARNING
+    languages: [generic]
+
+  - id: robusta-vibe-supabase-rls-permissive-policy
+    patterns:
+      - pattern-regex: (?i)create\s+policy\s+.*\s+using\s*\(\s*true\s*\)
+    message: >
+      Supabase RLS policy with 'USING (true)' grants access to ALL rows for
+      this operation. This effectively disables RLS for the table. Use
+      'USING (auth.uid() = user_id)' or similar conditions to restrict access
+      to the row owner.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: supabase
+    severity: ERROR
+    languages: [generic]
+
+  # ==========================================================================
+  #                 NEXT.JS — API ROUTES & SERVER ACTIONS
+  # ==========================================================================
+
+  # -- CWE-862 | Missing Auth in API Routes ---------------------------------
+
+  - id: robusta-vibe-nextjs-api-no-auth
+    patterns:
+      - pattern: |
+          export async function $METHOD(request: $REQ, ...) {
+            ...
+            $DB
+            ...
+          }
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: (GET|POST|PUT|PATCH|DELETE)
+      - pattern-not-inside: |
+          export async function $METHOD(request: $REQ, ...) {
+            ...
+            auth(...)
+            ...
+          }
+      - pattern-not-inside: |
+          export async function $METHOD(request: $REQ, ...) {
+            ...
+            getServerSession(...)
+            ...
+          }
+      - pattern-not-inside: |
+          export async function $METHOD(request: $REQ, ...) {
+            ...
+            currentUser(...)
+            ...
+          }
+      - pattern-not-inside: |
+          export async function $METHOD(request: $REQ, ...) {
+            ...
+            getToken(...)
+            ...
+          }
+    paths:
+      include:
+        - "**/app/api/**/route.*"
+    message: >
+      Next.js API route handler performs database operations without checking
+      authentication. Add auth verification (getServerSession, auth(),
+      currentUser) at the top of every API route that reads or writes data.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: nextjs
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-nextjs-server-action-no-auth
+    patterns:
+      - pattern: |
+          async function $FUNC(...) {
+            "use server"
+            ...
+          }
+      - pattern-not-inside: |
+          async function $FUNC(...) {
+            "use server"
+            ...
+            auth(...)
+            ...
+          }
+      - pattern-not-inside: |
+          async function $FUNC(...) {
+            "use server"
+            ...
+            getServerSession(...)
+            ...
+          }
+    message: >
+      Next.js Server Action without authentication check. Server Actions are
+      public HTTP endpoints — anyone can call them. Always verify the user
+      session at the start of every server action that modifies data.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: nextjs
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-nextjs-public-env-secret
+    patterns:
+      - pattern-regex: NEXT_PUBLIC_(?:SUPABASE_SERVICE|SECRET|PRIVATE|API_SECRET|ADMIN|DATABASE_URL|STRIPE_SECRET)
+    paths:
+      include:
+        - "**/.env*"
+        - "**/next.config.*"
+    message: >
+      Secret value exposed via NEXT_PUBLIC_ environment variable. Variables
+      prefixed with NEXT_PUBLIC_ are bundled into client-side JavaScript and
+      visible to anyone. Remove the NEXT_PUBLIC_ prefix and access this value
+      only in server-side code (API routes, Server Components, server actions).
+    metadata:
+      cwe: ["CWE-200"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: nextjs
+    severity: ERROR
+    languages: [generic]
+
+  - id: robusta-vibe-nextjs-middleware-auth-bypass
+    patterns:
+      - pattern-regex: "export const config.*matcher.*:\\s*\\[\\s*['\"]/((?!api|_next|favicon)\\w+)"
+    paths:
+      include:
+        - "**/middleware.*"
+    message: >
+      Next.js middleware matcher may not cover all routes. If using middleware
+      for auth, ensure the matcher includes all protected routes. Prefer a
+      broad matcher like '/((?!_next/static|_next/image|favicon.ico).*)' and
+      explicitly exclude public routes inside the middleware function.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: LOW
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: nextjs
+    severity: INFO
+    languages: [generic]
+
+  # ==========================================================================
+  #              FIREBASE — SECURITY RULES & CLIENT MISUSE
+  # ==========================================================================
+
+  - id: robusta-vibe-firebase-rules-open-read
+    patterns:
+      - pattern-regex: (?i)allow\s+read\s*:\s*if\s+true\s*;
+    paths:
+      include:
+        - "**/firestore.rules"
+        - "**/database.rules*"
+        - "**/storage.rules"
+    message: >
+      Firebase security rule allows unrestricted read access. Anyone can read
+      all data in this collection. Use 'allow read: if request.auth != null'
+      at minimum, and scope reads to the authenticated user's own documents.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: firebase
+    severity: ERROR
+    languages: [generic]
+
+  - id: robusta-vibe-firebase-rules-open-write
+    patterns:
+      - pattern-regex: (?i)allow\s+(?:write|create|update|delete)\s*:\s*if\s+true\s*;
+    paths:
+      include:
+        - "**/firestore.rules"
+        - "**/database.rules*"
+        - "**/storage.rules"
+    message: >
+      Firebase security rule allows unrestricted write access. Anyone can
+      modify or delete data. Use 'allow write: if request.auth != null &&
+      request.auth.uid == resource.data.userId' to restrict writes to
+      document owners.
+    metadata:
+      cwe: ["CWE-862"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: firebase
+    severity: ERROR
+    languages: [generic]
+
+  - id: robusta-vibe-firebase-admin-client-side
+    patterns:
+      - pattern-either:
+          - pattern: |
+              import $ADMIN from "firebase-admin"
+          - pattern: |
+              require("firebase-admin")
+    paths:
+      include:
+        - "**/components/**"
+        - "**/app/**/page.*"
+        - "**/pages/**/index.*"
+        - "**/hooks/**"
+    message: >
+      Firebase Admin SDK imported in client-side code. The Admin SDK bypasses
+      all security rules and should only run server-side. Use the client SDK
+      (firebase/firestore) in components and the Admin SDK only in API routes
+      or server actions.
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: firebase
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                STRIPE — WEBHOOK & PAYMENT SECURITY
+  # ==========================================================================
+
+  - id: robusta-vibe-stripe-webhook-no-verify
+    patterns:
+      - pattern: |
+          $REQ.body
+      - pattern-inside: |
+          async function $F($REQ, ...) {
+            ...
+          }
+      - pattern-not-inside: |
+          async function $F($REQ, ...) {
+            ...
+            stripe.webhooks.constructEvent(...)
+            ...
+          }
+    paths:
+      include:
+        - "**/webhook*"
+        - "**/stripe*"
+    message: >
+      Stripe webhook handler reads the request body without verifying the
+      webhook signature. Anyone can send fake webhook events to your endpoint.
+      Use stripe.webhooks.constructEvent(body, sig, webhookSecret) to verify
+      the event came from Stripe.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: stripe
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-stripe-price-from-client
+    patterns:
+      - pattern-either:
+          - pattern: |
+              stripe.checkout.sessions.create({ ..., line_items: [{ ..., price_data: { ..., unit_amount: $REQ.$FIELD, ... }, ... }], ... })
+          - pattern: |
+              stripe.paymentIntents.create({ ..., amount: $REQ.$FIELD, ... })
+    message: >
+      Stripe payment amount taken directly from client request. Users can
+      manipulate the price to pay less. Always look up the price from your
+      database or use Stripe Price IDs (price_xxx) instead of accepting
+      amounts from the client.
+    metadata:
+      cwe: ["CWE-472"]
+      owasp: ["A04:2021 Insecure Design"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: stripe
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            AUTH — CLERK, NEXTAUTH, LUCIA, SUPABASE AUTH
+  # ==========================================================================
+
+  - id: robusta-vibe-auth-client-side-role-check
+    patterns:
+      - pattern-either:
+          - pattern: |
+              if ($USER.role === "admin") { ... }
+          - pattern: |
+              if ($USER.role == "admin") { ... }
+          - pattern: |
+              $USER.role === "admin" ? ... : ...
+          - pattern: |
+              if ($SESSION.user.role === "admin") { ... }
+    paths:
+      include:
+        - "**/components/**"
+        - "**/app/**/page.*"
+        - "**/pages/**"
+    message: >
+      Authorization check based on user role in client-side code. Client-side
+      role checks are for UI rendering only — they provide zero security.
+      Always enforce role-based access in API routes, server actions, or
+      database policies (RLS). An attacker can bypass any client-side check.
+    metadata:
+      cwe: ["CWE-602"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: auth
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-auth-hardcoded-admin-email
+    patterns:
+      - pattern-either:
+          - pattern: |
+              if ($USER.email === "...$ADMIN_EMAIL") { ... }
+          - pattern: |
+              if ($EMAIL == "...$ADMIN_EMAIL") { ... }
+          - pattern: |
+              const adminEmails = ["...", ...]
+          - pattern: |
+              const ADMIN_EMAILS = ["...", ...]
+    message: >
+      Admin authorization based on hardcoded email addresses. This is brittle
+      and insecure — if any admin email is compromised or changes, you must
+      redeploy. Use a proper role system in your database or auth provider
+      (Clerk roles, Supabase custom claims, NextAuth callbacks).
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: auth
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-auth-jwt-no-verify
+    patterns:
+      - pattern-either:
+          - pattern: jwt.decode($TOKEN)
+          - pattern: JSON.parse(atob($TOKEN.split(".")[1]))
+          - pattern: JSON.parse(Buffer.from($TOKEN.split(".")[1], "base64").toString())
+    message: >
+      JWT decoded without signature verification. jwt.decode() does NOT verify
+      the token — anyone can craft a fake JWT. Use jwt.verify(token, secret)
+      or your auth library's session verification method instead.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A02:2021 Cryptographic Failures"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: auth
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-auth-supabase-getSession-server
+    patterns:
+      - pattern-either:
+          - pattern: supabase.auth.getSession()
+          - pattern: $CLIENT.auth.getSession()
+    paths:
+      include:
+        - "**/app/api/**"
+        - "**/server/**"
+        - "**/actions/**"
+    message: >
+      Using getSession() on the server side. getSession() reads from local
+      storage/cookies without verifying the JWT with Supabase. Use
+      supabase.auth.getUser() instead — it makes a server call to validate
+      the token and returns a trusted user object.
+    metadata:
+      cwe: ["CWE-345"]
+      owasp: ["A07:2021 Identification and Authentication Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: supabase
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                   CORS & SECURITY HEADERS
+  # ==========================================================================
+
+  - id: robusta-vibe-cors-wildcard
+    patterns:
+      - pattern-either:
+          - pattern: |
+              "Access-Control-Allow-Origin": "*"
+          - pattern: |
+              'Access-Control-Allow-Origin': '*'
+          - pattern: |
+              res.setHeader("Access-Control-Allow-Origin", "*")
+          - pattern: |
+              res.setHeader('Access-Control-Allow-Origin', '*')
+          - pattern: "cors({ origin: true })"
+          - pattern: "cors({ origin: \"*\" })"
+    message: >
+      CORS allows all origins. Any website can make authenticated requests to
+      your API if credentials are included. Set specific allowed origins:
+      cors({ origin: ['https://yourdomain.com'] }).
+    metadata:
+      cwe: ["CWE-942"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: security-headers
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-cors-credentials-wildcard
+    patterns:
+      - pattern: "cors({ origin: \"*\", credentials: true })"
+    message: >
+      CORS with wildcard origin AND credentials enabled. This is especially
+      dangerous — browsers block it, but misconfigurations in reverse proxies
+      can still expose authenticated endpoints. Never combine origin:'*' with
+      credentials:true.
+    metadata:
+      cwe: ["CWE-942"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: security-headers
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            DATA EXPOSURE — OVER-FETCHING & LEAKING
+  # ==========================================================================
+
+  - id: robusta-vibe-supabase-select-all
+    patterns:
+      - pattern: $CLIENT.from($TABLE).select("*")
+      - pattern-not-inside: |
+          ...
+          $RES = { ...data, password: undefined, ... }
+          ...
+    message: >
+      Supabase query selects all columns with select("*"). This may expose
+      sensitive fields (password hashes, internal IDs, PII) to the client.
+      Explicitly list only the columns the client needs:
+      .select("id, name, avatar_url").
+    metadata:
+      cwe: ["CWE-200"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: supabase
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-prisma-return-password
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $USER = await prisma.user.findUnique({ where: { ... } })
+              ...
+              return Response.json($USER)
+          - pattern: |
+              const $USER = await prisma.user.findUnique({ where: { ... } })
+              ...
+              return NextResponse.json($USER)
+    message: >
+      Prisma user query returned directly in API response. This likely exposes
+      the password hash and other sensitive fields. Use Prisma's 'select' or
+      'omit' to exclude sensitive fields: prisma.user.findUnique({ where,
+      select: { id: true, name: true, email: true } }).
+    metadata:
+      cwe: ["CWE-200"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: data-exposure
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            UNSAFE INPUT — NO VALIDATION / ZOD MISSING
+  # ==========================================================================
+
+  - id: robusta-vibe-server-action-no-validation
+    patterns:
+      - pattern: |
+          async function $FUNC($DATA: FormData) {
+            "use server"
+            ...
+            const $VAL = $DATA.get("...")
+            ...
+          }
+      - pattern-not-inside: |
+          async function $FUNC($DATA: FormData) {
+            "use server"
+            ...
+            $SCHEMA.parse(...)
+            ...
+          }
+      - pattern-not-inside: |
+          async function $FUNC($DATA: FormData) {
+            "use server"
+            ...
+            $SCHEMA.safeParse(...)
+            ...
+          }
+    message: >
+      Server Action reads FormData without schema validation. Use Zod or
+      another validation library to parse and validate all input:
+      const validated = schema.safeParse(Object.fromEntries(formData)).
+      Unvalidated input leads to type confusion, injection, and data corruption.
+    metadata:
+      cwe: ["CWE-20"]
+      owasp: ["A03:2021 Injection"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: input-validation
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-api-body-no-validation
+    patterns:
+      - pattern: |
+          const $BODY = await $REQ.json()
+          ...
+          await $DB.$METHOD({ data: $BODY })
+      - pattern-not-inside: |
+          const $BODY = await $REQ.json()
+          ...
+          $SCHEMA.parse($BODY)
+          ...
+      - pattern-not-inside: |
+          const $BODY = await $REQ.json()
+          ...
+          $SCHEMA.safeParse($BODY)
+          ...
+    message: >
+      API route passes raw request body directly to database without
+      validation. This allows attackers to inject unexpected fields (mass
+      assignment). Validate the body with Zod: const data = schema.parse(body).
+    metadata:
+      cwe: ["CWE-915"]
+      owasp: ["A08:2021 Software and Data Integrity Failures"]
+      confidence: HIGH
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: input-validation
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #                IDOR — INSECURE DIRECT OBJECT REFERENCE
+  # ==========================================================================
+
+  - id: robusta-vibe-idor-no-ownership-check
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const { id } = $PARAMS
+              ...
+              await prisma.$MODEL.delete({ where: { id } })
+          - pattern: |
+              const { id } = $PARAMS
+              ...
+              await prisma.$MODEL.update({ where: { id }, ... })
+          - pattern: |
+              const $ID = $PARAMS.id
+              ...
+              $CLIENT.from($TABLE).delete().eq("id", $ID)
+          - pattern: |
+              const $ID = $PARAMS.id
+              ...
+              $CLIENT.from($TABLE).update(...).eq("id", $ID)
+    message: >
+      Database mutation uses an ID from URL parameters without verifying the
+      authenticated user owns the record. This is an IDOR vulnerability — any
+      user can modify or delete another user's data by changing the ID.
+      Always add an ownership check: .eq("user_id", session.user.id).
+    metadata:
+      cwe: ["CWE-639"]
+      owasp: ["A01:2021 Broken Access Control"]
+      confidence: MEDIUM
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: idor
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #            VERCEL / DEPLOYMENT — ENV & CONFIG ISSUES
+  # ==========================================================================
+
+  - id: robusta-vibe-env-secret-in-git
+    patterns:
+      - pattern-regex: (?i)(?:SUPABASE_SERVICE_ROLE_KEY|DATABASE_URL|STRIPE_SECRET_KEY|OPENAI_API_KEY|NEXTAUTH_SECRET|JWT_SECRET|API_SECRET)\s*=\s*\S+
+    paths:
+      include:
+        - "**/.env"
+        - "**/.env.local"
+        - "**/.env.production"
+    message: >
+      Secret value found in .env file. If this file is committed to git,
+      the secret is permanently in your repository history. Add .env* to
+      .gitignore and store secrets in your deployment platform's environment
+      variables (Vercel, Railway, Fly.io dashboard).
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: deployment
+    severity: ERROR
+    languages: [generic]
+
+  - id: robusta-vibe-debug-mode-production
+    patterns:
+      - pattern-either:
+          - pattern: |
+              debug: true
+          - pattern: |
+              DEBUG: "true"
+          - pattern: |
+              NEXT_PUBLIC_DEBUG=true
+    paths:
+      include:
+        - "**/.env.production"
+        - "**/next.config.*"
+        - "**/vercel.json"
+    message: >
+      Debug mode enabled in production configuration. Debug mode exposes
+      stack traces, internal state, and potentially sensitive data to users.
+      Disable debug mode for production deployments.
+    metadata:
+      cwe: ["CWE-215"]
+      owasp: ["A05:2021 Security Misconfiguration"]
+      confidence: HIGH
+      impact: MEDIUM
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: deployment
+    severity: WARNING
+    languages: [generic]
+
+  # ==========================================================================
+  #            RATE LIMITING — MISSING ON SENSITIVE ENDPOINTS
+  # ==========================================================================
+
+  - id: robusta-vibe-no-rate-limit-auth
+    patterns:
+      - pattern-either:
+          - pattern: |
+              export async function POST($REQ, ...) {
+                ...
+                signIn(...)
+                ...
+              }
+          - pattern: |
+              export async function POST($REQ, ...) {
+                ...
+                signUp(...)
+                ...
+              }
+          - pattern: |
+              export async function POST($REQ, ...) {
+                ...
+                $CLIENT.auth.signInWithPassword(...)
+                ...
+              }
+      - pattern-not-inside: |
+          export async function POST($REQ, ...) {
+            ...
+            rateLimit(...)
+            ...
+          }
+      - pattern-not-inside: |
+          export async function POST($REQ, ...) {
+            ...
+            limiter.check(...)
+            ...
+          }
+    paths:
+      include:
+        - "**/api/auth/**"
+        - "**/api/login*"
+        - "**/api/signup*"
+        - "**/api/register*"
+    message: >
+      Authentication endpoint without rate limiting. Attackers can brute-force
+      credentials or enumerate users without restriction. Add rate limiting
+      using upstash/ratelimit, express-rate-limit, or your platform's
+      built-in rate limiting.
+    metadata:
+      cwe: ["CWE-307"]
+      owasp: ["A07:2021 Identification and Authentication Failures"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: rate-limiting
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        FILE UPLOAD — UNVALIDATED TYPE, SIZE, OR DESTINATION
+  # ==========================================================================
+
+  - id: robusta-vibe-upload-no-type-check
+    patterns:
+      - pattern-either:
+          - pattern: |
+              const $FILE = $FORM.get("file")
+              ...
+              await $STORAGE.upload($PATH, $FILE)
+          - pattern: |
+              const $FILE = $FORM.get("file")
+              ...
+              await writeFile($PATH, $FILE)
+      - pattern-not-inside: |
+          ...
+          $FILE.type
+          ...
+      - pattern-not-inside: |
+          ...
+          $FILE.name.endsWith(...)
+          ...
+    message: >
+      File upload without validating file type. Users can upload executable
+      scripts (.html, .svg with XSS, .php) that may execute on your server or
+      be served to other users. Validate both Content-Type and file extension
+      against an allowlist of safe types.
+    metadata:
+      cwe: ["CWE-434"]
+      owasp: ["A04:2021 Insecure Design"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: file-upload
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        DRIZZLE / PRISMA ORM — RAW SQL & MASS ASSIGNMENT
+  # ==========================================================================
+
+  - id: robusta-vibe-drizzle-raw-sql-injection
+    patterns:
+      - pattern-either:
+          - pattern: sql.raw($INPUT)
+          - pattern: db.execute(sql.raw($INPUT))
+          - pattern: "db.execute(`... ${$INPUT} ...`)"
+    message: >
+      Raw SQL with interpolated input in Drizzle ORM. Use parameterized
+      queries with sql`... ${value} ...` (tagged template) which automatically
+      parameterizes values. Never use sql.raw() with user input.
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: database
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-prisma-raw-sql-injection
+    patterns:
+      - pattern-either:
+          - pattern: prisma.$queryRawUnsafe($INPUT)
+          - pattern: prisma.$executeRawUnsafe($INPUT)
+          - pattern: "prisma.$queryRawUnsafe(`... ${$INPUT} ...`)"
+          - pattern: "prisma.$executeRawUnsafe(`... ${$INPUT} ...`)"
+    message: >
+      Prisma unsafe raw query with interpolated input. Use prisma.$queryRaw
+      (tagged template) which parameterizes values automatically. The
+      $queryRawUnsafe and $executeRawUnsafe methods are SQL injection vectors.
+    metadata:
+      cwe: ["CWE-89"]
+      owasp: ["A03:2021 Injection"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: database
+    severity: ERROR
+    languages: [typescript, javascript]
+
+  # ==========================================================================
+  #        AI / LLM — PROMPT INJECTION & KEY EXPOSURE
+  # ==========================================================================
+
+  - id: robusta-vibe-llm-prompt-injection
+    patterns:
+      - pattern-either:
+          - pattern: |
+              { role: "user", content: $USER_INPUT }
+          - pattern: |
+              { role: "system", content: `... ${$USER_INPUT} ...` }
+    message: >
+      User input passed directly into LLM prompt without sanitization. This
+      enables prompt injection — users can override system instructions, extract
+      the system prompt, or make the LLM perform unintended actions. Sanitize
+      input, use separate system/user message roles, and never interpolate
+      user input into system prompts.
+    metadata:
+      cwe: ["CWE-74"]
+      owasp: ["A03:2021 Injection"]
+      confidence: MEDIUM
+      impact: HIGH
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: ai-security
+    severity: WARNING
+    languages: [typescript, javascript]
+
+  - id: robusta-vibe-openai-key-client
+    patterns:
+      - pattern-either:
+          - pattern: "new OpenAI({ apiKey: \"sk-...\" })"
+          - pattern: "new OpenAI({ apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY })"
+    message: >
+      OpenAI API key exposed in client-side code. API keys bundled into
+      frontend JavaScript are visible to anyone and can be stolen to
+      run up charges on your account. Always call the OpenAI API from
+      server-side code (API routes, server actions).
+    metadata:
+      cwe: ["CWE-798"]
+      owasp: ["A07:2021 Identification and Authentication Failures"]
+      confidence: HIGH
+      impact: CRITICAL
+      author: Robusta Studio
+      license: "Copyright (c) 2026 Robusta Studio. All rights reserved."
+      category: ai-security
+    severity: ERROR
+    languages: [typescript, javascript]
